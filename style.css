@@ -12,11 +12,11 @@ body {
 }
 #streetview {
     height: 70vh;
-    width: 55vw;
+    width: 45vw;
 }
 #satellite {
     height: 70vh;
-    width: 35vw;
+    width: 40vw;
 }
 #time-travel-container {
     display: none;
