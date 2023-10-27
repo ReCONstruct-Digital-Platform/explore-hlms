@@ -17,6 +17,7 @@
 const selectedLot = {
     feature: {},
 }
+let infoWindow;
 
 function onClick(e) {
     if (e.feature.getProperty('clicked') === 'true') {
@@ -32,45 +33,45 @@ function onClick(e) {
         e.feature.setProperty('clicked', 'true');
         showLotPoints(e.feature);
         selectedLot.feature = e.feature;
+        createInfoWindow(e);
     }
 }
 
 function styleFeatures(feature) {
-    let fillColor, strokeColor, strokeWeight=1; 
-    if (feature.getProperty('CO_TYPE_PO') === 'LO') {
-        fillColor = 'green';
-    }
-    else if (feature.getProperty('CO_TYPE_PO') === 'PB') {
-        fillColor = 'red';
-    }
-    else {
-        console.log(feature.getProperty('CO_TYPE_PO'))
-        fillColor = 'blue';
+    let fillColor, strokeColor, strokeWeight=1, visible = true, fillOpacity = 0.35; 
+    if (feature.getProperty('utilisatio') === null || feature.getProperty('utilisatio') === '9100') {
+        visible = false;
     }
 
-    if (feature.getProperty('CO_TYPE_DI') === 'V') {
-        strokeColor = 'red';
+    else if (feature.getProperty('utilisatio') === '1000' && feature.getProperty('id_provinc') === 'Multiple')  {
+        fillColor = "#red";
+        strokeColor = "red";
     }
-    else if (feature.getProperty('CO_TYPE_DI') === 'H') {
-        strokeColor = 'green';
+    else if (feature.getProperty('utilisatio') === '1000')  {
+        fillColor = "#55eb34";
+        strokeColor = "#2dbf0d";
     }
     else {
-        console.log(feature.getProperty('CO_TYPE_DI'))
-        strokeColor = 'blue';
+        fillColor = "#fff533";
+        strokeColor = '#fcfc12';
     }
 
     if (feature.getProperty("state") === "hover") {
         strokeWeight = 2;
+        fillOpacity = 0.65;
     }
 
     if (feature.getProperty("clicked") === "true") {
         strokeWeight = 2;
+        fillOpacity = 0.65;
     }
 
     return {
         fillColor: fillColor,
+        fillOpacity: fillOpacity,
         strokeColor: strokeColor,
-        strokeWeight: strokeWeight
+        strokeWeight: strokeWeight,
+        visible: visible,
     }
 }
 
@@ -87,9 +88,9 @@ async function showLotPoints(feature) {
     const svgMarker = {
         path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
         fillColor: "#55eb34",
+        strokeColor: "#2dbf0d",
         fillOpacity: 0.8,
         strokeWeight: 1,
-        strokeColor: "#2dbf0d",
         rotation: 0,
         scale: 4,
       };
@@ -117,12 +118,47 @@ async function showLotPoints(feature) {
 }
 
 
+// Helper function for the infowindow.
+async function createInfoWindow(event) {
+    let feature = event.feature;
+
+    let content =
+        '<span style="font-size:small">Usage: ' + feature.getProperty('usag_predo') +
+        '(' + feature.getProperty('utilisatio') + ')' +
+        '<br/> Provinc. ID: ' + feature.getProperty('id_provinc') + 
+        '<br/> Area: ' + feature.getProperty('sup_totale') + ' m2' +
+        '<br/> Lot ID: ' + feature.getProperty('no_lot') +
+        '<br/> Num dwellings: ' + feature.getProperty('nb_logemen') + 
+        '<br/> Num locals: ' + feature.getProperty('nb_locaux') + '</span>';
+  
+    updateInfoWindow(content, event.latLng);
+}
+
+  // Helper function to create an info window.
+function updateInfoWindow(content, center) {
+    infoWindowMap.setContent(content);
+    infoWindowMap.setPosition(center);
+    infoWindowMap.open({
+        map: window.map,
+        shouldFocus: false,
+    });
+    // Streetview Infowindow
+    // infoWindowSv.setContent(content);
+    // infoWindowSv.setPosition(center);
+    // infoWindowSv.open({
+    //   map: window.sv,
+    //   shouldFocus: false,
+    // });
+}
 
 async function findPanorama(svService, panoRequest, coordinates) {
-    const { Map } = await google.maps.importLibrary("maps");
+    const { Map, InfoWindow } = await google.maps.importLibrary("maps");
     const { event } = await google.maps.importLibrary("core");
     const { spherical } = await google.maps.importLibrary("geometry");
     const { StreetViewStatus, StreetViewPanorama } = await google.maps.importLibrary("streetView");
+
+    infoWindowMap = new InfoWindow({});
+    infoWindowSv = new InfoWindow({});
 
     // Send a request to the panorama service
     svService.getPanorama(panoRequest, function (data, status) {
@@ -164,8 +200,8 @@ async function findPanorama(svService, panoRequest, coordinates) {
     
             // load the data
             map.data.loadGeoJson(
-                "./data/lots_reproj.geojson",
-                { idPropertyName: "NO_LOT" },
+                "./data/lots_subset_verdun.geojson",
+                { idPropertyName: "OBJECTID" },
             );
 
             map.data.setStyle(styleFeatures)
