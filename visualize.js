@@ -13,13 +13,12 @@
     findPanorama(svService, panoRequest, coordinates);
 })();
 
-
+// Global object keeping track of the currently selected lot
 const selectedLot = {
     feature: {},
 }
 
 function onClick(e) {
-    console.log('click');
     if (e.feature.getProperty('clicked') === 'true') {
         e.feature.setProperty('clicked', 'false');
         deletePoints(e.feature);
@@ -85,6 +84,16 @@ async function deletePoints(feature) {
 async function showLotPoints(feature) {
     const { Marker } = await google.maps.importLibrary("marker");
 
+    const svgMarker = {
+        path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
+        fillColor: "#55eb34",
+        fillOpacity: 0.8,
+        strokeWeight: 1,
+        strokeColor: "#2dbf0d",
+        rotation: 0,
+        scale: 4,
+      };
+
     if (!feature.getProperty('points')) {
         feature.setProperty('points', []);
     }
@@ -94,11 +103,13 @@ async function showLotPoints(feature) {
 
         feature.getProperty('points').push(new Marker({
             position: coords,
-            map: window.map
+            map: window.map,
+            icon: svgMarker,
         }))
         feature.getProperty('points').push(new Marker({
             position: coords,
-            map: window.sv
+            map: window.sv,
+            icon: svgMarker,
         }))
     }
     feature.getGeometry().forEachLatLng(addPoint);
@@ -111,7 +122,6 @@ async function findPanorama(svService, panoRequest, coordinates) {
     const { Map } = await google.maps.importLibrary("maps");
     const { event } = await google.maps.importLibrary("core");
     const { spherical } = await google.maps.importLibrary("geometry");
-    const { Marker } = await google.maps.importLibrary("marker");
     const { StreetViewStatus, StreetViewPanorama } = await google.maps.importLibrary("streetView");
 
     // Send a request to the panorama service
@@ -151,20 +161,12 @@ async function findPanorama(svService, panoRequest, coordinates) {
                 mapTypeControl: false,
             });
             map.setStreetView(sv);
-
-            // visualize.js:99 creating point at (45.45793510100003, -73.57552645699995)
-            // visualize.js:99 creating point at (45.458137699000076, -73.57550824799993)
-            // visualize.js:99 creating point at (45.45813354400008, -73.57541490999995)
     
             // load the data
             map.data.loadGeoJson(
                 "./data/lots_reproj.geojson",
                 { idPropertyName: "NO_LOT" },
             );
-            // wait for the request to complete by listening for the first feature to be
-            event.addListener(map.data, "addfeature", () => {
-                console.log(`Feauture added`)
-            });
 
             map.data.setStyle(styleFeatures)
             map.data.addListener("mouseover", e => e.feature.setProperty("state", "hover"));
