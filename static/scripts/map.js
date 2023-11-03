@@ -4,16 +4,18 @@ const dataset = document.currentScript.dataset;
 
 var map;
 const lastRenderedBounds = {bounds: null};
+var hoveredLotId = null;
+var clickedLotId = null;
 
 document.addEventListener("DOMContentLoaded", () => {
 
     mapboxgl.accessToken = dataset.mapboxToken;
     map = new mapboxgl.Map({
-        container: 'mapbox', // container ID
-        style: 'mapbox://styles/mapbox/light-v11', // style URL
-        // style: 'mapbox://styles/mapbox/outdoors-v12',
+        container: 'mapbox',
+        style: 'mapbox://styles/mapbox/light-v11',
         center: [-72.55424486768713, 46.772195471242426], // starting position [lng, lat]
-        zoom: 5, // starting zoom
+        zoom: 5,
+        maxZoom: 19,
         projection: 'globe',
         hash: true
     });
@@ -26,22 +28,21 @@ document.addEventListener("DOMContentLoaded", () => {
             accessToken: mapboxgl.accessToken,
             mapboxgl: mapboxgl,
             proximity: true,
-
         })
     );
     // Add zoom and rotation controls to the map.
     map.addControl(new mapboxgl.NavigationControl());
     map.addControl(new mapboxgl.ScaleControl());
 
-    //DEBUG Stuff
-    map.showTileBoundaries = true;
-    map.showOverdraw = true;
-    document.getElementById('zoom_indicator').innerHTML = `zoom: ${map.getZoom().toFixed(2)}`;
-    updateBounds(map)
-    map.on('move', () => {
-        document.getElementById('zoom_indicator').innerHTML = `zoom: ${map.getZoom().toFixed(2)}`;
-        updateBounds(map)
-    })
+    // //DEBUG Stuff
+    // // map.showTileBoundaries = true;
+    // // map.showOverdraw = true;
+    // document.getElementById('zoom_indicator').innerHTML = `zoom: ${map.getZoom().toFixed(2)}`;
+    // updateBounds(map)
+    // map.on('move', () => {
+    //     document.getElementById('zoom_indicator').innerHTML = `zoom: ${map.getZoom().toFixed(2)}`;
+    //     updateBounds(map)
+    // })
 
 
     map.on('load', () => {
@@ -110,7 +111,6 @@ document.addEventListener("DOMContentLoaded", () => {
             map.getCanvas().style.cursor = '';
         });
         
-        // Initial lot render
         renderLots(map, lastRenderedBounds);
     });
     
@@ -123,21 +123,55 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 const clickHandler = (e) => {
-    console.debug(e);
-    console.debug(e.features);
+    // Toggle styles on the lot to shows it's selected
+    if (e.features.length > 0) {
+        if (clickedLotId !== null) {
+            map.setFeatureState(
+                { source: "lots", id: clickedLotId },
+                { clicked: false }
+            );
+        }
+        clickedLotId = e.features[0].id;
+        map.setFeatureState(
+            { source: "lots", id: clickedLotId },
+            { clicked: true }
+        );
+    }
+    const geometry = e.features[0].geometry;
+    console.debug(geometry);
+
+    fetch(dataset.fetchLotInfoUrl, {
+        method: "POST",
+        mode: "same-origin", 
+        cache: "no-cache", 
+        credentials: "same-origin", 
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(geometry),
+    })
+    .then(response => {
+        return response.json();
+    })
+    .then(data => {
+        console.debug(data);
+
+
+
+    });
+
+    // const {lot_id, util, usage, num_dwel, unit_ids} = e.features[0].properties
     
-    const {lot_id, util, usage, num_dwel, unit_ids} = e.features[0].properties
-    
-    new mapboxgl.Popup()
-        .setLngLat(e.lngLat)
-        .setHTML(
-            `Lot ID: ${lot_id}<br/>` +
-            `Util: ${util}<br/>` +
-            `Usage: ${usage}<br/>` + 
-            `Dwellings: ${num_dwel}<br/>` +
-            `Eval units: ${JSON.parse(unit_ids)}<br/>`
-        )
-        .addTo(map);
+    // new mapboxgl.Popup()
+    //     .setLngLat(e.lngLat)
+    //     .setHTML(
+    //         `Lot ID: ${lot_id}<br/>` +
+    //         `Util: ${util}<br/>` +
+    //         `Usage: ${usage}<br/>` + 
+    //         `Dwellings: ${num_dwel}<br/>` +
+    //         `Eval units: ${JSON.parse(unit_ids)}<br/>`
+    //     )
+    //     .addTo(map);
 }
 
 
@@ -157,13 +191,15 @@ function boundsAContainB(A, B) {
 function renderLots(map, lastRenderedBounds) {
     // Only render lots when zoomed in past a certain level
     if (map.getZoom() < 14.5) return;
-
+    
     const currentBounds = map.getBounds()
     // If the current bounds are fully contained within the last rendered
     // bounds, i.e. if we have zoomed in and eventually panned within 
     // the previously rendered area, then we don't need to re-render.
     if (boundsAContainB(lastRenderedBounds.bounds, currentBounds)) return;
-
+    
+    // Show the loader
+    document.getElementById('loader').style.display = 'block';
     // Else fetch data spanning the current bounds from the server
     fetch(dataset.fetchLotsUrl, {
         method: "POST",
@@ -180,35 +216,78 @@ function renderLots(map, lastRenderedBounds) {
     })
     .then(data => {
         console.debug(data);
-        
-        // Remove the previous layer and source
-        if (map.getLayer('lots_layer')) {
-            map.removeLayer('lots_layer');
-        }
-        if (map.getSource('lots')) {
-            map.removeSource('lots');
-        }
-        map.off('click', 'lots_layer', clickHandler);
 
-        // Ideally we could diff or merge the previous source 
+        // Remove the previous layer and source
+        if (map.getLayer("lots_layer")) {
+            map.removeLayer("lots_layer");
+        }
+        if (map.getSource("lots")) {
+            map.removeSource("lots");
+        }
+        map.off("click", "lots_layer", clickHandler);
+
+        // Ideally we could diff or merge the previous source
         // with the new one insted of completely replacing it
-        map.addSource('lots', {
-            type: 'geojson',
-            data: data
+        map.addSource("lots", {
+            type: "geojson",
+            data: data,
+            generateId: true
         });
         // Re-render the layer
         map.addLayer({
-            id: 'lots_layer',
-            type: 'fill',
-            source: 'lots',
+            id: "lots_layer",
+            type: "fill",
+            source: "lots",
             paint: {
-                'fill-outline-color': 'rgba(0,0,0,0.15)',
-                'fill-color': 'rgba(0,0,0,0.15)'
+                "fill-outline-color": "#000",
+                "fill-color": "#000",
+                'fill-opacity': [
+                    'case',
+                    ['boolean', ['feature-state', 'hover'], false],
+                    0.5,
+                    [
+                        'case',
+                        ['boolean', ['feature-state', 'clicked'], false],
+                        0.5,
+                        0.15
+                    ]
+                ]
             },
             minzoom: 14.5,
-        }, 'hlm_point');
+        }, "hlm_point");
 
-        map.on('click', 'lots_layer', clickHandler);
+        // hide the loader on successful load
+        document.getElementById("loader").style.display = "none";
+        map.on("click", "lots_layer", clickHandler);
+
+        // When the user moves their mouse over the layer, we'll update the
+        map.on("mousemove", "lots_layer", (e) => {
+            map.getCanvas().style.cursor = 'pointer';
+            if (e.features.length > 0) {
+                if (hoveredLotId !== null) {
+                    map.setFeatureState(
+                        { source: "lots", id: hoveredLotId },
+                        { hover: false }
+                    );
+                }
+                hoveredLotId = e.features[0].id;
+                map.setFeatureState(
+                    { source: "lots", id: hoveredLotId },
+                    { hover: true }
+                );
+            }
+        });
+
+        map.on("mouseleave", "lots_layer", () => {
+            map.getCanvas().style.cursor = '';
+            if (hoveredLotId !== null) {
+                map.setFeatureState(
+                    { source: "lots", id: hoveredLotId },
+                    { hover: false }
+                );
+            }
+            hoveredLotId = null;
+        });
     });
     
     // Update the last rendered bounds

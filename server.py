@@ -34,7 +34,7 @@ def lots():
     minx, miny = data['_sw'].values()
     maxx, maxy = data['_ne'].values()
 
-    print(f"SELECT lots.gid, lots.id_provinc, ST_centroid(lots.geom), lots.no_lot, lots.utilisatio, lots.descriptio from lots where ST_CONTAINS(ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326), lots.geom);")
+    # print(f"SELECT lots.gid, lots.id_provinc, ST_centroid(lots.geom), lots.no_lot, lots.utilisatio, lots.descriptio from lots where ST_CONTAINS(ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326), lots.geom);")
 
     # cur.execute(f"""select json_build_object('type', 'FeatureCollection', 'features', 
     #             json_agg(json_build_object('type', 'Feature', 'geometry', ST_AsGeoJSON(u.geom)::json))) from 
@@ -43,9 +43,11 @@ def lots():
     
     # cur.execute(f"""select json_build_object('type', 'FeatureCollection', 'features', 
     #             json_agg(json_build_object('type', 'Feature', 'geometry', ST_AsGeoJSON(lots.geom)::json))) 
-    #             from lots where lots.gid in (1149426, 2665835)""")
+    #             from lots where lots.no_lot in ('6141300')""")
     #             # from lots where lots.gid in (1149426, 1779609, 2366055, 2539026, 2665835, 2929669, 2983939, 3042392)""")
     
+    # res = cur.fetchone()[0]
+    # return res
 
 
     cur.execute(f"""
@@ -70,29 +72,46 @@ def lots():
                 where ST_CONTAINS(ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326), geom) group by no_lot) as u ;""")
 
 
-
-    # cur.execute(f"""
-    #     select json_build_object(
-    #         'type', 'FeatureCollection', 'features', 
-    #         json_agg(
-    #             json_build_object(
-    #                 'type', 'Feature', 
-    #                 'geometry', ST_AsGeoJSON(lots.geom)::json,
-    #                 'properties', json_build_object(
-    #                     'id', lots.gid, 'no', lots.no_lot, 'util', lots.utilisatio, 'desc', lots.descriptio
-    #                 ) 
-    #             )
-    #         )
-    #     ) from lots 
-    #     where ST_CONTAINS(ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326), lots.geom);""")
-
-    # cur.execute(f"""select json_build_object('type', 'FeatureCollection',
-    #                 'features', json_agg(json_build_object('type', 'Feature', 'geometry', 
-    #                 ST_AsGeoJSON(ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326))::json)));""")
-
     res = cur.fetchone()[0]
     # with open('t.json', 'r') as infile:
     #     res = json.load(infile)
 
     return res
+
+
+@app.route('/lot_info', methods=['POST'])
+def lot_info():
+    data = request.json
+    print(data)
+    _, cur = _new_conn()
+
+    cur.execute(f"""
+        select json_build_object(
+            'id', e.id, 
+            'address', e.address, 
+            'const_yr', e.const_yr, 
+            'phys_link', e.phys_link, 
+            'num_dwelling', e.num_dwelling, 
+            'hlms', json_agg(
+                json_build_object(
+                    'id', hlm.id, 
+                    'organism', hlm.organism, 
+                    'address', concat(hlm.street_num, ' ', hlm.street_name)::text, 
+                    'num_dwelling', hlm.num_dwellings, 
+                    'num_floors', hlm.num_floors, 
+                    'ivp', hlm.ivp, 
+                    'disrepair_state', hlm.disrepair_state,
+                    'category', hlm.category
+                )
+            )
+        ) 
+        from buildings_evalunit e 
+        join buildings_hlmbuilding hlm on hlm.eval_unit_id = e.id 
+        where ST_Within(e.point, ST_GeomFromGEOJSON(%s))
+        group by e.id, e.address;""", (json.dumps(data),))
+    res = cur.fetchall()
+    print(res)
+
+    return res
+
 
