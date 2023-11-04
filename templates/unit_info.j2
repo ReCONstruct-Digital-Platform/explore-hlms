@@ -1,0 +1,105 @@
+
+<div id="lot-info">
+    <div id="unit-address">
+        <strong>
+        {{ unit.address }}
+        </strong>
+    </div>
+    <div id="unit-id">
+        <small>
+        {{ unit.id }}
+        </small>
+    </div>
+    <div>
+        {% if unit.num_adr_sup %}
+            <small>
+            (multiple addresses)
+            </small>
+        {% endif %}
+    </div>
+
+    <div id="unit-phys-chars">
+        <div id="unit-phys-chars" class="unit-info-section-header">
+            Physical Characteristics
+        </div>
+        <div id="unit-phys-link">{{ unit.phys_link }}</div>
+    
+    </div>
+    <div id="unit-const-yr">
+        {% if unit.const_yr %}
+            Built in {{ unit.const_yr }}
+            {% if unit.const_yr_real == 'E' %}
+                (est.)
+            {% endif %} 
+        {% endif %}</div>
+    <div>Dwellings: {{ unit.num_dwelling }}</div>
+
+    <div>
+    max_floor: {{unit.max_floor}}
+    </div>
+    <div>
+    lot_area: {{unit.lot_area}}
+    </div>
+    <div>
+    lot_lin_dim: {{unit.lot_lin_dim}}
+    </div>
+    <div>
+    floor_area: {{unit.floor_area}}
+    </div>
+    <div>
+    lot_value: {{unit.lot_value}}
+    </div>
+    <div>
+    building_value: {{unit.building_value}}
+    </div>
+    <div>
+    value: {{unit.value}}
+    </div>
+    <div>
+    prev_value: {{unit.prev_value}}
+    </div>
+    <div>
+    owner_date: {{unit.owner_date}}
+    </div>
+    <div>
+    owner_type: {{unit.owner_type}}
+    </div>
+    <div>
+    owner_status: {{unit.owner_status}}
+    </div>
+
+    <div>
+    hlms: 
+    </div>
+
+    {% for hlm in unit.hlms %}
+    <div>
+    id: {{ hlm.id }}
+    </div>
+    <div>
+    organism: {{ hlm.organism }}
+    </div>
+    <div>
+    address: {{ hlm.address }}
+    </div>
+    <div>
+    num_dwelling: {{ hlm.num_dwelling }}
+    </div>
+    <div>
+    num_floors: {{ hlm.num_floors }}
+    </div>
+    <div>
+    ivp: {{ hlm.ivp }}
+    </div>
+    <div>
+    disrepair_state: {{ hlm.disrepair_state }}
+    </div>
+    <div>
+    category: {{ hlm.category }}
+    </div>
+    {% endfor %}
+
+</div>
+<div id="hlm-info">
+
+</div>

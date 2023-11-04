@@ -1,0 +1,25 @@
+
+<div id="lot-info">
+<p> {{unit }}</p>
+    <div id="unit-id">ID {{ unit.id }}</div>
+    <div id="unit-address">{{ unit.address }}
+        {% if unit.num_adr_sup %}
+            (multiple addresses)
+        {% endif %}
+    </div>
+    <div>
+
+    </div>
+    <div id="unit-phys-link">{{ unit.phys_link }}</div>
+    <div id="unit-const-yr">
+        {% if unit.const_yr %}
+            Built in {{ unit.const_yr }}
+            {% if unit.const_yr_real == 'E' %}
+                (est.)
+            {% endif %} 
+        {% endif %}</div>
+    <div>Dwellings: 12</div>
+</div>
+<div id="hlm-info">
+
+</div>

@@ -25,56 +25,109 @@ def _new_conn():
 def index():
     return render_template('index.html', mapbox_token=MAPBOX_TOKEN)
 
+
+
+@app.route("/test", methods=['GET'])
+def test2():
+    return render_template('test.html', mapbox_token=MAPBOX_TOKEN, lot=None)
+
+@app.route("/test/<id>", methods=['GET'])
+def test(id):
+    _, cur = _new_conn()
+
+    cur.execute(f"""
+        SELECT json_build_object(
+            'type', 'FeatureCollection', 'features', 
+            json_agg(
+                json_build_object(
+                    'type', 'Feature', 
+                    'geometry', ST_AsGeoJSON(geom)::json
+                )
+            )
+        )
+        FROM lots WHERE id_provinc = %s""", (id,))
+    res = cur.fetchone()[0]
+    return render_template('test.html', mapbox_token=MAPBOX_TOKEN, lot=res)
+
+@app.route("/get_lot", methods=['POST'])
+def getLotAtPosition():
+    data = request.json
+    print(data)
+    _, cur = _new_conn()
+
+    cur.execute(f"""
+        SELECT json_build_object(
+            'type', 'FeatureCollection', 'features', 
+            json_agg(
+                json_build_object(
+                    'type', 'Feature', 
+                    'geometry', ST_AsGeoJSON(geom)::json
+                )
+            )
+        )
+        FROM lots lots where st_intersects(geom, ST_SetSRID(ST_MakePoint(%s, %s),4326));
+    """, (data['lng'], data['lat'],))
+
+    res = cur.fetchone()[0]
+    return res
+
 @app.route('/lots', methods=['POST'])
 def lots():
     data = request.json
-    print(data)
+    # print(data)
     _, cur = _new_conn()
 
     minx, miny = data['_sw'].values()
     maxx, maxy = data['_ne'].values()
 
-    # print(f"SELECT lots.gid, lots.id_provinc, ST_centroid(lots.geom), lots.no_lot, lots.utilisatio, lots.descriptio from lots where ST_CONTAINS(ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326), lots.geom);")
+    # # V1.0 Fetches the lots based on them being within the map bounds
+    # cur.execute(f"""
+    #     select json_build_object(
+    #         'type', 'FeatureCollection', 'features', 
+    #         json_agg(
+    #             json_build_object(
+    #                 'type', 'Feature', 
+    #                 'geometry', ST_AsGeoJSON(u.geom)::json,
+    #                 'properties', json_build_object(
+    #                     'lot_id', u.no_lot, 'util', u.util, 'usage', u.usage,
+    #                     'num_dwel', num_dwel, 'unit_ids', unit_ids
+    #                 ) 
+    #             )
+    #         )
+    #     ) from (select no_lot, st_union(array_agg(geom)) as geom,
+    #             sum(nb_logemen) as num_dwel, 
+    #             mode() within group (order by utilisatio) as util,
+    #             mode() within group (order by usag_predo) as usage,
+    #             json_agg(id_provinc) as unit_ids
+    #             from lots 
+    #             where ST_CONTAINS(ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326), geom) 
+    #             group by no_lot) as u ;""")
 
-    # cur.execute(f"""select json_build_object('type', 'FeatureCollection', 'features', 
-    #             json_agg(json_build_object('type', 'Feature', 'geometry', ST_AsGeoJSON(u.geom)::json))) from 
-    #             (select st_union(array_agg(lots.geom)) as geom from lots where lots.gid 
-    #                 in (1779609, 2366055, 2539026, 2665835, 2929669, 2983939, 3042392)) u;""")
-    
-    # cur.execute(f"""select json_build_object('type', 'FeatureCollection', 'features', 
-    #             json_agg(json_build_object('type', 'Feature', 'geometry', ST_AsGeoJSON(lots.geom)::json))) 
-    #             from lots where lots.no_lot in ('6141300')""")
-    #             # from lots where lots.gid in (1149426, 1779609, 2366055, 2539026, 2665835, 2929669, 2983939, 3042392)""")
-    
-    # res = cur.fetchone()[0]
-    # return res
-
-
+    # V2.0 Fetches the lots based on the eval unit point being in the bounds AND extra conditions on eval unit
     cur.execute(f"""
         select json_build_object(
             'type', 'FeatureCollection', 'features', 
             json_agg(
                 json_build_object(
                     'type', 'Feature', 
-                    'geometry', ST_AsGeoJSON(u.geom)::json,
+                    'geometry', ST_AsGeoJSON(res.lot_geom)::json,
                     'properties', json_build_object(
-                        'lot_id', u.no_lot, 'util', u.util, 'usage', u.usage,
-                        'num_dwel', num_dwel, 'unit_ids', unit_ids
+                        'id', res.id,
+                        'hlms', res.hlms,
+                        'ivp', res.avg_ivp
                     ) 
                 )
             )
-        ) from (select no_lot, st_union(array_agg(geom)) as geom,
-                sum(nb_logemen) as num_dwel, 
-                mode() within group (order by utilisatio) as util,
-                mode() within group (order by usag_predo) as usage,
-                json_agg(id_provinc) as unit_ids
-                from lots 
-                where ST_CONTAINS(ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326), geom) group by no_lot) as u ;""")
-
+        ) from (
+                select e.*, e.geom as lot_geom,
+                json_agg(hlm.*) as hlms, round(avg(hlm.ivp)::numeric, 1) as avg_ivp
+                from evalunits e
+                join buildings_hlmbuilding hlm on hlm.eval_unit_id = e.id
+                where ST_CONTAINS(ST_MakeEnvelope(%s, %s, %s, %s, 4326), e.geom)
+                group by e.id
+            ) as res;""", (minx, miny, maxx, maxy,))
 
     res = cur.fetchone()[0]
-    # with open('t.json', 'r') as infile:
-    #     res = json.load(infile)
 
     return res
 
@@ -85,13 +138,29 @@ def lot_info():
     print(data)
     _, cur = _new_conn()
 
+    eval_unit_id = data['id']
+    
     cur.execute(f"""
         select json_build_object(
             'id', e.id, 
             'address', e.address, 
+            'num_adr_sup', e.num_adr_sup,
             'const_yr', e.const_yr, 
-            'phys_link', e.phys_link, 
-            'num_dwelling', e.num_dwelling, 
+            'const_yr_real', e.const_yr_real, 
+            'phys_link', e.phys_link,
+            'const_type', e.const_type,
+            'num_dwelling', e.num_dwelling,
+            'max_floor', e.max_floors,
+            'lot_area', e.lot_area,
+            'lot_lin_dim', e.lot_lin_dim,
+            'floor_area', e.floor_area,
+            'lot_value', e.lot_value,
+            'building_value', e.building_value,
+            'value', e.value,
+            'prev_value', e.prev_value,
+            'owner_date', e.owner_date,
+            'owner_type', e.owner_type,
+            'owner_status', e.owner_status,
             'hlms', json_agg(
                 json_build_object(
                     'id', hlm.id, 
@@ -106,12 +175,11 @@ def lot_info():
             )
         ) 
         from buildings_evalunit e 
-        join buildings_hlmbuilding hlm on hlm.eval_unit_id = e.id 
-        where ST_Within(e.point, ST_GeomFromGEOJSON(%s))
-        group by e.id, e.address;""", (json.dumps(data),))
-    res = cur.fetchall()
-    print(res)
+        join buildings_hlmbuilding hlm on hlm.eval_unit_id = e.id
+        where e.id = %s
+        group by e.id, e.address;""", (eval_unit_id,))
+    res = cur.fetchone()[0]
 
-    return res
+    return render_template('unit_info.j2', unit=res)
 
 

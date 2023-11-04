@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Show Lots</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <script src='https://api.mapbox.com/mapbox-gl-js/v3.0.0-beta.1/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v3.0.0-beta.1/mapbox-gl.css' rel='stylesheet' />
+    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
+    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" type="text/css">
+</head>
+<body>
+    <div class="centered">
+        <div id="mapbox"></div>
+        <!-- <div id="dev-info" class="overlay">
+            <div id="bounds_indicator"></div>
+        </div> -->
+        <div id='info-overlay' class="overlay" style="display: flex;">
+            <div id="zoom_indicator"></div>
+            <div class="select">
+                <div>Map Type</div>
+            </div>
+            <div class="select">
+                <div>Layer Select</div>
+                <div id="data-layer-select">
+                    <input id="hlms" type="radio" name="data-select" value="hlms" checked="checked">
+                    <label for="hlms">HLMs</label>
+                </div>
+            </div>
+            <div id="#lot-info">
+            </div>
+            <div id="hlm-info">
+
+            </div>
+        </div>
+        <object id="loader" data="{{ url_for('static', filename='svg/loader.svg') }}" type="image/svg+xml" 
+            width="40" height="40" style="display: none;"></object>
+
+        <script>
+        document.addEventListener("DOMContentLoaded", () => {
+
+        mapboxgl.accessToken = "{{ mapbox_token }}";
+
+        map = new mapboxgl.Map({
+            container: 'mapbox',
+            style: 'mapbox://styles/mapbox/light-v11',
+            center: [-72.55424486768713, 46.772195471242426], // starting position [lng, lat]
+            zoom: 12,
+            maxZoom: 19,
+            projection: 'globe',
+            hash: true
+        });
+        document.map = map;
+        
+        const lot_data = JSON.parse('{{ lot | tojson | safe}}');
+        
+        map.on('load', () => {
+            // If no lot given
+            if (!lot_data) return;
+
+            map.addSource("lots", {
+                type: "geojson",
+                data: lot_data,
+                generateId: true
+            });
+    
+            // Render the layer
+            map.addLayer({
+                id: "lots_layer",
+                type: "fill",
+                source: "lots",
+                paint: {
+                    'fill-color': '#0f0',
+                    'fill-opacity': 0.35
+                }
+            });
+    
+            map.flyTo({
+                center: map.getSource('lots')._data.features[0].geometry.coordinates[0][0][0],
+                zoom: 16,
+            })
+        });
+
+        map.on('click', (e) => {
+            
+            const coords = JSON.stringify(e.lngLat.wrap());
+            console.debug('clicked on ', coords);
+
+            fetch('/get_lot', {
+                method: 'POST',
+                body: coords,
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            })
+            .then(resp => resp.json())
+            .then(data => {
+
+                console.debug(data);
+
+                if (map.getLayer('lots_layer')) map.removeLayer('lots_layer');
+                if (map.getSource('lots')) map.removeSource('lots');
+                
+                map.addSource("lots", {
+                    type: "geojson",
+                    data: data,
+                    generateId: true
+                });
+                // Render the layer
+                map.addLayer({
+                    id: "lots_layer",
+                    type: "fill",
+                    source: "lots",
+                    paint: {
+                        "fill-color": '#0f0',
+                        'fill-opacity': 0.35
+                    }
+                });
+
+                map.flyTo({
+                    center: e.lngLat,
+                    zoom: map.getZoom() + 1
+                });
+            });
+        });
+        
+        });
+        </script>
+
+    </div>
+  </body>
+</html>
