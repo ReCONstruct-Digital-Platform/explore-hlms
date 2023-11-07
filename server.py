@@ -61,7 +61,10 @@ def getLotAtPosition():
             json_agg(
                 json_build_object(
                     'type', 'Feature', 
-                    'geometry', ST_AsGeoJSON(geom)::json
+                    'geometry', ST_AsGeoJSON(geom)::json,
+                    'properties', json_build_object(
+                        'id', lots.id_provinc
+                    )
                 )
             )
         )

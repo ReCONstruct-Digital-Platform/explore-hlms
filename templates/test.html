@@ -50,6 +50,17 @@
             hash: true
         });
         document.map = map;
+
+        // Add the control to the map.
+        map.addControl(
+            // https://github.com/mapbox/mapbox-gl-geocoder/blob/main/API.md#mapboxgeocoder
+            new MapboxGeocoder({
+                accessToken: mapboxgl.accessToken,
+                mapboxgl: mapboxgl,
+                proximity: true,
+            })
+        );
+
         
         const lot_data = JSON.parse('{{ lot | tojson | safe}}');
         
