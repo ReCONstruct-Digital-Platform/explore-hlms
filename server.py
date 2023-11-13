@@ -23,7 +23,18 @@ def _new_conn():
 
 @app.route("/", methods=['GET'])
 def index():
-    return render_template('index.html', mapbox_token=MAPBOX_TOKEN)
+    _, cur = _new_conn()
+    cur.execute(f"""SELECT min(ivp), max(ivp), min(num_dwellings), max(num_dwellings) FROM hlms;""")
+    res = cur.fetchone()
+
+    return render_template(
+        'index.html',
+        ivp_min = res[0],
+        ivp_max = res[1] + 1,
+        dwellings_min = res[2], 
+        dwellings_max = res[3] + 1,
+        mapbox_token=MAPBOX_TOKEN
+    )
 
 
 
@@ -48,6 +59,82 @@ def test(id):
         FROM lots WHERE id_provinc = %s""", (id,))
     res = cur.fetchone()[0]
     return render_template('test.html', mapbox_token=MAPBOX_TOKEN, lot=res)
+
+
+@app.route("/get_hlms", methods=['GET', 'POST'])
+def get_hlms():
+    _, cur = _new_conn()
+    
+    if request.method == 'POST':
+        data = request.json
+        print(data)
+        ivp_range_min = data['filter']['ivpRangeMin']
+        ivp_range_max = data['filter']['ivpRangeMax']
+        dwellings_range_min = data['filter']['dwellingsRangeMin']
+        dwellings_range_max = data['filter']['dwellingsRangeMax']
+
+        # TODO: SANITIZE THIS
+        # -- I think cursor.execute() will sanitize the input
+        # Once we intergrate in Django, we can use the ORM
+        cur.execute(f"""
+            SELECT json_build_object(
+                'type', 'FeatureCollection', 'features', 
+                json_agg(
+                    json_build_object(
+                        'type', 'Feature', 
+                        'geometry', ST_AsGeoJSON(point)::json,
+                        'properties', json_build_object(
+                            'id', id,
+                            'eval_unit_id', eval_unit_id, 
+                            'organism', organism, 
+                            'service_center', service_center, 
+                            'address', address, 
+                            'muni', muni, 
+                            'num_dwellings', num_dwellings, 
+                            'num_floors', num_floors, 
+                            'area_footprint', area_footprint, 
+                            'area_total', area_total, 
+                            'ivp', ivp, 
+                            'disrepair_state', disrepair_state, 
+                            'category', category
+                        )
+                    )
+                )
+            ) FROM hlms
+            WHERE ivp between %s and %s
+            AND num_dwellings between %s and %s; 
+        """, (ivp_range_min, ivp_range_max, dwellings_range_min, dwellings_range_max,))
+
+    else:
+        cur.execute(f"""
+            SELECT json_build_object(
+                'type', 'FeatureCollection', 'features', 
+                json_agg(
+                    json_build_object(
+                        'type', 'Feature', 
+                        'geometry', ST_AsGeoJSON(point)::json,
+                        'properties', json_build_object(
+                            'id', id,
+                            'eval_unit_id', eval_unit_id, 
+                            'organism', organism, 
+                            'service_center', service_center, 
+                            'address', address, 
+                            'muni', muni, 
+                            'num_dwellings', num_dwellings, 
+                            'num_floors', num_floors, 
+                            'area_footprint', area_footprint, 
+                            'area_total', area_total, 
+                            'ivp', ivp, 
+                            'disrepair_state', disrepair_state, 
+                            'category', category
+                        )
+                    )
+                )
+            ) FROM hlms;
+        """)
+    res = cur.fetchone()[0]
+
+    return res
 
 @app.route("/get_lot", methods=['POST'])
 def getLotAtPosition():
@@ -74,37 +161,17 @@ def getLotAtPosition():
     res = cur.fetchone()[0]
     return res
 
-@app.route('/lots', methods=['POST'])
-def lots():
+@app.route('/get_lots', methods=['POST'])
+def get_lots():
     data = request.json
-    # print(data)
     _, cur = _new_conn()
 
-    minx, miny = data['_sw'].values()
-    maxx, maxy = data['_ne'].values()
-
-    # # V1.0 Fetches the lots based on them being within the map bounds
-    # cur.execute(f"""
-    #     select json_build_object(
-    #         'type', 'FeatureCollection', 'features', 
-    #         json_agg(
-    #             json_build_object(
-    #                 'type', 'Feature', 
-    #                 'geometry', ST_AsGeoJSON(u.geom)::json,
-    #                 'properties', json_build_object(
-    #                     'lot_id', u.no_lot, 'util', u.util, 'usage', u.usage,
-    #                     'num_dwel', num_dwel, 'unit_ids', unit_ids
-    #                 ) 
-    #             )
-    #         )
-    #     ) from (select no_lot, st_union(array_agg(geom)) as geom,
-    #             sum(nb_logemen) as num_dwel, 
-    #             mode() within group (order by utilisatio) as util,
-    #             mode() within group (order by usag_predo) as usage,
-    #             json_agg(id_provinc) as unit_ids
-    #             from lots 
-    #             where ST_CONTAINS(ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326), geom) 
-    #             group by no_lot) as u ;""")
+    minx, miny = data['bounds']['_sw'].values()
+    maxx, maxy = data['bounds']['_ne'].values()
+    ivp_range_min = data['filter']['ivpRangeMin']
+    ivp_range_max = data['filter']['ivpRangeMax']
+    dwellings_range_min = data['filter']['dwellingsRangeMin']
+    dwellings_range_max = data['filter']['dwellingsRangeMax']
 
     # V2.0 Fetches the lots based on the eval unit point being in the bounds AND extra conditions on eval unit
     cur.execute(f"""
@@ -117,19 +184,23 @@ def lots():
                     'properties', json_build_object(
                         'id', res.id,
                         'hlms', res.hlms,
-                        'ivp', res.avg_ivp
+                        'ivp', res.avg_ivp,
+                        'num_dwellings', res.num_dwellings
                     ) 
                 )
             )
         ) from (
                 select e.*, e.geom as lot_geom,
-                json_agg(hlm.*) as hlms, round(avg(hlm.ivp)::numeric, 1) as avg_ivp
+                json_agg(hlm.*) as hlms, round(avg(hlm.ivp)::numeric, 1) as avg_ivp,
+                json_agg(hlm.num_dwellings) as num_dwellings
                 from evalunits e
-                join buildings_hlmbuilding hlm on hlm.eval_unit_id = e.id
-                where ST_CONTAINS(ST_MakeEnvelope(%s, %s, %s, %s, 4326), e.geom)
+                join hlms hlm on hlm.eval_unit_id = e.id
+                where ST_INTERSECTS(ST_MakeEnvelope(%s, %s, %s, %s, 4326), hlm.point)
+                AND hlm.ivp between %s and %s
+                AND hlm.num_dwellings between %s and %s
                 group by e.id
-            ) as res;""", (minx, miny, maxx, maxy,))
-
+            ) as res;""", 
+        (minx, miny, maxx, maxy, ivp_range_min, ivp_range_max, dwellings_range_min, dwellings_range_max))
     res = cur.fetchone()[0]
 
     return res
@@ -146,7 +217,9 @@ def lot_info():
     cur.execute(f"""
         select json_build_object(
             'id', e.id, 
-            'address', e.address, 
+            'address', e.address,
+            'lot_number', e.lot_number,
+            'muni', e.muni,
             'num_adr_sup', e.num_adr_sup,
             'const_yr', e.const_yr, 
             'const_yr_real', e.const_yr_real, 
@@ -161,13 +234,14 @@ def lot_info():
             'building_value', e.building_value,
             'value', e.value,
             'prev_value', e.prev_value,
-            'owner_date', e.owner_date,
+            'owner_date', TO_CHAR(e.owner_date, 'dd/mm/yyyy'),
             'owner_type', e.owner_type,
             'owner_status', e.owner_status,
             'hlms', json_agg(
                 json_build_object(
                     'id', hlm.id, 
-                    'organism', hlm.organism, 
+                    'organism', hlm.organism,
+                    'service_center', hlm.service_center,
                     'address', concat(hlm.street_num, ' ', hlm.street_name)::text, 
                     'num_dwelling', hlm.num_dwellings, 
                     'num_floors', hlm.num_floors, 
@@ -177,8 +251,8 @@ def lot_info():
                 )
             )
         ) 
-        from buildings_evalunit e 
-        join buildings_hlmbuilding hlm on hlm.eval_unit_id = e.id
+        from evalunits e 
+        join hlms hlm on hlm.eval_unit_id = e.id
         where e.id = %s
         group by e.id, e.address;""", (eval_unit_id,))
     res = cur.fetchone()[0]

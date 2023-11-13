@@ -7,29 +7,105 @@ const lastRenderedBounds = {bounds: null};
 var hoveredLotId = null;
 var clickedLotId = null;
 
-const LOT_LAYER_MIN_ZOOM = 15
+const LOT_LAYER_MIN_ZOOM = 15;
+const HLM_OVERLAY_EASE_TO_ZOOM = 16.5;
 
 const currentlyLoadedLotIds = new Set();
 
+// objects for caching and keeping track of HTML marker objects (for performance)
+const markers = {};
+let markersOnScreen = {};
+
 // filters for classifying HLMs into IVP categories
-const ivpA = ['<=', ['get', 'ivp'], 5];
-const ivpB = ['all', ['>', ['get', 'ivp'], 5], ['<=', ['get', 'ivp'], 10]];
+const ivpA = ['<=', ['get', 'ivp'], 5.1];
+const ivpB = ['all', ['>', ['get', 'ivp'], 5.1], ['<=', ['get', 'ivp'], 10]];
 const ivpC = ['all', ['>', ['get', 'ivp'], 10], ['<=', ['get', 'ivp'], 15]];
 const ivpD = ['all', ['>', ['get', 'ivp'], 15], ['<=', ['get', 'ivp'], 30]];
 const ivpE = ['>', ['get', 'ivp'], 30];
 
 const colors = ['#198754', '#b1ce3c', '#ffd147', '#E86430', '#de2235'];
 
+const filterData = {
+    ivpRangeMin: dataset.ivpRangeMin,
+    ivpRangeMax: dataset.ivpRangeMax,
+    dwellingsRangeMin: dataset.dwellingsRangeMin,
+    dwellingsRangeMax: dataset.dwellingsRangeMax,
+};
 
-function drawMapLayers() {
+var lastLoadedFilter = {};
+
+function setUpFilter() {
+
+    document.getElementById('ivp-range-slider')
+        .addEventListener('range-changed', (e) => {
+            const data = e.detail;
+            filterData.ivpRangeMin = data.minRangeValue;
+            filterData.ivpRangeMax = data.maxRangeValue;
+        });
+
+    document.getElementById('dwellings-range-slider')
+        .addEventListener('range-changed', (e) => {
+            const data = e.detail;
+            filterData.dwellingsRangeMin = data.minRangeValue;
+            filterData.dwellingsRangeMax = data.maxRangeValue;
+            dwellingsFilterChanged = true;
+        });
+
+
+    const submitFilterButton = document.getElementById('filter-submit');
+
+    submitFilterButton.addEventListener('click', async () => {
+        
+        // Check if the filter has actually changed
+        if (JSON.stringify(filterData) === JSON.stringify(lastLoadedFilter)) {
+            console.debug('same filters');
+            return;
+        } 
+
+        console.log(filterData);
+
+        // Need to fetch filtered hlms from server, so clusters regenerate properly
+        const hlms = await fetch("/get_hlms", {
+            method: 'POST',
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({filter: filterData})
+        }).then(resp => resp.json());
+
+        map.getSource('hlms').setData(hlms);
+
+        if (map.getSource('lots')) {
+            const lots = await fetch(dataset.fetchLotsUrl, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    bounds: map.getBounds(),
+                    filter: filterData
+                })
+            }).then(resp => resp.json());
+            
+            lots.features = lots.features ?? [];
+
+            map.getSource('lots').setData(lots);
+            renderClusterMarkers();
+        }
+
+        lastLoadedFilter = structuredClone(filterData);
+    })
+}
+
+
+async function drawMapLayers() {
     console.debug("Adding HLMs layer and Events");
+
+    // Get the HLMs from the server
+    const hlms = await fetch("/get_hlms", {cache: 'no-cache'}).then(resp => resp.json());
 
     map.addSource("hlms", {
         type: "geojson",
-        data: `${dataset.dataFolder}/hlms.geojson`,
+        data: hlms,
         cluster: true,
         clusterMaxZoom: 13,
-        clusterMinPoints: 5,
+        clusterMinPoints: 2,
         clusterRadius: 80,
         clusterProperties: {
             num_dwellings: ["+", ["get", "num_dwellings"]],
@@ -41,7 +117,7 @@ function drawMapLayers() {
             ivpE: ["+", ['*', ['get', 'num_dwellings'], ["case", ivpE, 1, 0]]],
         },
     });
-
+    
     // Add the HLM points layer
     map.addLayer({
         id: "hlm_point",
@@ -52,89 +128,23 @@ function drawMapLayers() {
             'visibility': 'visible',
         },
         paint: {
-            "circle-radius": [
-                "interpolate", ["linear"], ["zoom"],
-                0,
-                [
-                    "*",
-                    [
-                        "interpolate",
-                        ["exponential", 1],
-                        ["get", "num_dwellings"],
-                        1, 3,
-                        50, 12,
-                        100, 15,
-                        150, 21,
-                    ],
-                    1,
-                ],
-                5,
-                [
-                    "*",
-                    [
-                        "interpolate",
-                        ["exponential", 1],
-                        ["get", "num_dwellings"],
-                        1, 3,
-                        50, 12,
-                        100, 15,
-                        150, 21,
-                    ],
-                    1.1,
-                ],
-                10,
-                [
-                    "*",
-                    [
-                        "interpolate",
-                        ["exponential", 1],
-                        ["get", "num_dwellings"],
-                        1, 6,
-                        50, 15,
-                        100, 20,
-                        150, 25,
-                    ],
-                    1.4,
-                ],
-                22,
-                [
-                    "*",
-                    [
-                        "interpolate",
-                        ["exponential", 1],
-                        ["get", "num_dwellings"],
-                        1, 3,
-                        50, 12,
-                        100, 15,
-                        150, 21,
-                    ], 2,
-                ],
+            "circle-radius": hlmStyles.circleRadius,
+            "circle-color": hlmStyles.ivpColorSteps,
+            "circle-stroke-color": hlmStyles.ivpColorSteps,
+            "circle-opacity": [
+                "interpolate",  ["linear"], ["zoom"],
+                16, .6,
+                17, 1,
             ],
-            "circle-color": [
-                "step",
-                ["get", "ivp"],
-                "#198754",
-                5,
-                "#b1ce3c",
-                10,
-                "#ffd147",
-                15,
-                "#E86430",
-                30,
-                "#de2235",
-            ],
-            "circle-opacity": 0.6,
             "circle-stroke-width": 0,
             "circle-stroke-opacity": 1,
-            "circle-stroke-color": [
-                "step",
-                ["get", "ivp"],
-                "#198754",
-                5, "#b1ce3c",
-                10, "#ffd147",
-                15, "#E86430",
-                30, "#de2235",
-            ],
+            "circle-blur": [
+                "interpolate",  ["linear"], ["zoom"],
+                0, 0,
+                14, 0,
+                16, .5,
+                17, 1,
+            ]
         },
     });
 
@@ -148,16 +158,30 @@ function drawMapLayers() {
             "text-field": ["get", "num_dwellings"],
             "text-allow-overlap": true,
         },
+        maxzoom: HLM_OVERLAY_EASE_TO_ZOOM
     });
 
-    // objects for caching and keeping track of HTML marker objects (for performance)
-    const markers = {};
-    let markersOnScreen = {};
+    // Add the HLM address label when sufficiently zoomed in
+    map.addLayer({
+        id: "hlm_addresses_labels",
+        type: "symbol",
+        source: "hlms",
+        filter: ["!=", "cluster", true],
+        layout: {
+            "text-field": ["concat", ["get", "address"], " (", ["get", "num_dwellings"], ")"],
+            "text-allow-overlap": false,
+            "text-variable-anchor": ["bottom-left", "top-left", "top", "bottom-right", "top-right", "left", "right", "bottom"]
+        },
+        minzoom: HLM_OVERLAY_EASE_TO_ZOOM
+    });
+    
+    
 
+    // https://github.com/mapbox/mapbox-gl-js/issues/2613
     function renderClusterMarkers() {
         const newMarkers = {};
         const features = map.querySourceFeatures("hlms");
-
+        
         // for every cluster on the screen, create an HTML marker for it (if we didn't yet),
         // and add it to the map if it's not there already
         for (const feature of features) {
@@ -165,24 +189,23 @@ function drawMapLayers() {
             const props = feature.properties;
             // If feature is not part of cluster return
             if (!props.cluster) continue;
-
+            
             const id = props.cluster_id;
-
+            
             let marker = markers[id];
             if (!marker) {
                 const el = createDonutChart(props, colors);
                 marker = markers[id] = new mapboxgl.Marker({
                     element: el,
                 }).setLngLat(coords);
-
+                
                 el.addEventListener('click',  () => {
-                    map.getSource('hlms').getClusterExpansionZoom(
-                        id,
+                    map.getSource('hlms').getClusterExpansionZoom(id,
                         (err, zoom) => {
                             if (err) return;
                             map.easeTo({
                                 center: coords,
-                                zoom: zoom
+                                zoom: zoom + 2
                             });
                         }
                     );
@@ -190,26 +213,25 @@ function drawMapLayers() {
             }
             newMarkers[id] = marker;
             
-
             if (!markersOnScreen[id]) marker.addTo(map);
         }
-
+        
         // for every marker we've added previously, remove those that are no longer visible
         for (const id in markersOnScreen) {
             if (!newMarkers[id]) markersOnScreen[id].remove();
         }
         markersOnScreen = newMarkers;
     }
-
+        
     // after the GeoJSON data is loaded, update markers on the screen on every frame
     map.on("render", () => {
         if (!map.isSourceLoaded("hlms")) return;
         renderClusterMarkers();
     });
-
+    
     // When a click event occurs on a feature in
     map.on("click", "hlm_point", hlmPointClickHandler);
-
+    
     map.on("mouseenter", "hlm_point", () => {
         map.getCanvas().style.cursor = "pointer";
     });
@@ -217,111 +239,102 @@ function drawMapLayers() {
         map.getCanvas().style.cursor = "";
     });
 
-    renderLots(map, lastRenderedBounds, true);
+    renderLots(map, lastRenderedBounds);
 }
 
 
-const hlmPointClickHandler = (e) => {
-    map.easeTo({
-        center: e.lngLat,
-        zoom: 16,
-    })
-    // TODO: Trigger a click on the underlying lot
+function hlmPointClickHandler(e) {
+    const evalUnitId = e.features[0].properties.eval_unit_id;
+    console.debug(`HLM Point clicked. ID: ${evalUnitId}`);
+    // Trigger the overlay 
+    triggerHLMOverlay(evalUnitId, e.features[0].geometry.coordinates);
 
-    // const coordinates = e.features[0].geometry.coordinates.slice();
-    // const {id, lot_address, ivp, hlm_addresses, num_dwellings} = e.features[0].properties;
-    
-    // const hlm_address_json = JSON.parse(hlm_addresses)
-    
-    // // Ensure that if the map is zoomed out such that
-    // // multiple copies of the feature are visible, the
-    // // popup appears over the copy being pointed to.
-    // while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-    //     coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-    // }
-
-    // new mapboxgl.Popup()
-    //     .setLngLat(coordinates)
-    //     .setHTML(
-    //         `${lot_address}<br/>` +
-    //         `Avg IVP: ${ivp}<br/>` +
-    //         `${num_dwellings} dwellings<br/>` +
-    //         `${hlm_address_json.length} HLM${hlm_address_json.length > 1 ? 's' : ''}: ${hlm_address_json}<br/>`
-    //     )
-    //     .addTo(map);
+    // TODO (Optional): Set the lot polygon as selected
+    // Hard to do because the polygon is most likely not loaded
+    // in a source or rendered when the HLM point is clicked.
 }
 
+
+function setUpMenuButton() {
+    const menu = document.getElementById('menu-overlay');
+    const menuButton = document.getElementById('menu-overlay-button');
+
+    menuButton.addEventListener('click', () => {
+        menuButton.setAttribute('aria-pressed', menuButton.matches('[aria-pressed=true]') ? false : true);
+        menu.setAttribute('data-visible', menu.matches('[data-visible=true]') ? false : true);
+    });
+
+}
 
 document.addEventListener("DOMContentLoaded", () => {
+
+    setUpMenuButton();
+
+    setUpFilter();
 
     mapboxgl.accessToken = dataset.mapboxToken;
     map = new mapboxgl.Map({
         container: 'mapbox',
-        style: 'mapbox://styles/mapbox/light-v11',
+        style: 'mapbox://styles/mapbox/streets-v12',
         center: [-72.55424486768713, 46.772195471242426], // starting position [lng, lat]
         zoom: 5.5,
-        maxZoom: 19,
+        maxZoom: 18,
         projection: 'globe',
         hash: true
     });
     document.map = map;
 
-    // Add the control to the map.
+    // Search bar
+    // https://github.com/mapbox/mapbox-gl-geocoder/blob/main/API.md#mapboxgeocoder
     map.addControl(
-        // https://github.com/mapbox/mapbox-gl-geocoder/blob/main/API.md#mapboxgeocoder
         new MapboxGeocoder({
             accessToken: mapboxgl.accessToken,
             mapboxgl: mapboxgl,
             proximity: true,
         })
     );
-    // Add zoom and rotation controls to the map.
-    map.addControl(new mapboxgl.NavigationControl());
-    // map.addControl(new mapboxgl.ScaleControl());
+    map.addControl(new mapboxgl.ScaleControl());
 
-    // //DEBUG Stuff
-    // // map.showTileBoundaries = true;
-    // // map.showOverdraw = true;
-    document.getElementById('zoom_indicator').innerHTML = `zoom: ${map.getZoom().toFixed(2)}`;
-    map.on('move', () => {
-        document.getElementById('zoom_indicator').innerHTML = `zoom: ${map.getZoom().toFixed(2)}`;
-    })
-    // updateBounds(map)
+    // // //DEBUG Stuff
+    // document.getElementById('zoom_indicator').innerHTML = `zoom: ${map.getZoom().toFixed(2)}`;
     // map.on('move', () => {
-    //     updateBounds(map);
+    //     document.getElementById('zoom_indicator').innerHTML = `zoom: ${map.getZoom().toFixed(2)}`;
     // })
     
 
     map.on('load', () => {
+        if (map.getStyle().name === 'Mapbox Streets') {
+            // Hide some layers in the streets-v12 map to unclutter
+            map.removeLayer('poi-label');
+            map.removeLayer('road-path');
+            map.removeLayer('road-path-bg');
+            map.removeLayer('crosswalks');
+            map.removeLayer('road-oneway-arrow-blue');
+            map.removeLayer('road-oneway-arrow-white');
+            map.removeLayer('road-number-shield');
+            map.removeLayer('road-exit-shield');
+        }
         drawMapLayers();
     });
     
     // Check if we need to re-render the lots on move end
     map.on('moveend', (e) => {
         renderLots(map, lastRenderedBounds);
-        // Make the Point layer visible if needed
-        if (map.getZoom() < LOT_LAYER_MIN_ZOOM && 
-            map.getLayoutProperty('hlm_point', 'visibility') === 'none') 
-        {
-            map.setLayoutProperty('hlm_point', 'visibility', 'visible');
-        }
     });
 
-    
-    // // Layer select
-    // const mapTypeList = document.getElementById('map-type-select');
-    // const mapTypeInputs = mapTypeList.getElementsByTagName('input');
-     
-    // for (const input of mapTypeInputs) {
-    //     input.onclick = (layer) => {
-    //         const layerId = layer.target.id;
-    //         map.setStyle('mapbox://styles/mapbox/' + layerId);
-    //         // redraw map layers
-    //         map.once('render', () => {
-    //             drawMapLayers();
-    //         });
-    //     };
-    // }
+    map.on('click', () => {
+        // Hide the info overlay
+        document.getElementById('info-overlay').setAttribute('data-visible', false);
+
+        // Unselect the currently clicked lot, if applicable
+        if (clickedLotId !== null) {
+            map.setFeatureState(
+                { source: "lots", id: clickedLotId },
+                { clicked: false }
+            );
+        }
+    })
+
     
     // // Layer select
     // const dataLayerSelect = document.getElementById('data-layer-select');
@@ -333,7 +346,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     //         // redraw map layers
     //         map.once('render', () => {
-    //             console.debug('map rendered')
     //             drawMapLayers();
     //         });
     //     };
@@ -342,7 +354,59 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
+async function triggerHLMOverlay(evalUnitId, centerLngLat) {
+    const overlayElement = document.getElementById('info-overlay');
+    const overlayHTMLContent = await fetch(
+        dataset.fetchLotInfoUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", },
+            body: JSON.stringify({ id: evalUnitId }),
+        })
+        // Text instead of JSON because we're getting the rendered HTML from the server
+        .then(response => response.text());
+    
+    overlayElement.innerHTML = overlayHTMLContent;
+
+    // Execute all scripts contained within the HTML
+    var scripts = overlayElement.querySelectorAll("script");
+    for (var i = 0; i < scripts.length; i++) {
+        if (scripts[i].innerText) {
+        eval(scripts[i].innerText);
+    }}
+
+    overlayElement.setAttribute('data-visible', true);
+    // Hide the menu if it is currently visible
+    document.getElementById('menu-overlay-button').setAttribute('aria-pressed', false);
+    document.getElementById('menu-overlay').setAttribute('data-visible', false);
+    
+    if (map.getZoom() >= 16.5) return;
+
+    // Quick Maff to position the lot in the middle of screen space
+    // left over after showing the overlay. 
+    // Semi complicated because we have to give an offset from the center.
+    const mapWidth = map._containerWidth;
+    const overlayWidth = overlayElement.offsetWidth;
+    const remainingWidth = mapWidth - overlayWidth
+
+    const isOverlayLargerThanHalfScreen = (0.5 * map._containerWidth) < overlayWidth;
+    const deltaOffset = Math.abs((0.5 * mapWidth) - overlayWidth)
+    
+    const offset = isOverlayLargerThanHalfScreen ?
+        0.5 * (remainingWidth + deltaOffset) :
+        (0.5 * remainingWidth) - deltaOffset;
+
+    map.easeTo({
+        duration: 1000,
+        center: centerLngLat,
+        zoom: map.getZoom() < HLM_OVERLAY_EASE_TO_ZOOM ? HLM_OVERLAY_EASE_TO_ZOOM : map.getZoom(),
+        offset: [-offset, 0] // Offset is negative to move left from center
+    })
+}
+
 const lotClickHandler = (e) => {
+    // e is of type Mapbox::MapMouseEvent
+    e.originalEvent.stopPropagation();
+
     // Toggle styles on the lot to shows it's selected
     if (e.features.length > 0) {
         if (clickedLotId !== null) {
@@ -358,33 +422,8 @@ const lotClickHandler = (e) => {
         );
     }
 
-    map.easeTo({
-        center: e.lngLat,
-        zoom: map.getZoom() < 16.5 ? 16.5 : map.getZoom()
-    })
-
     const evalUnitId = e.features[0].properties.id;
-    console.debug(evalUnitId);
-
-    fetch(dataset.fetchLotInfoUrl, {
-        method: "POST",
-        mode: "same-origin", 
-        cache: "no-cache", 
-        credentials: "same-origin", 
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-            id: evalUnitId
-        }),
-    })
-    .then(response => response.text())
-    .then(html => {
-        console.debug(html);
-        document.getElementById('info-overlay').innerHTML = html;
-        document.getElementById('info-overlay').style.display = 'flex';
-    });
-
+    triggerHLMOverlay(evalUnitId, e.lngLat);
 }
 
 
@@ -393,6 +432,7 @@ function renderLots(map, lastRenderedBounds, forceRender = false) {
     if (map.getZoom() < LOT_LAYER_MIN_ZOOM) return;
     
     const currentBounds = map.getBounds();
+
     // If the current bounds are fully contained within the last rendered
     // bounds, i.e. if we have zoomed in and eventually panned within 
     // the previously rendered area, then we don't need to re-render.
@@ -401,47 +441,43 @@ function renderLots(map, lastRenderedBounds, forceRender = false) {
         return;
     }
 
-    // Show the loader
-    document.getElementById('loader').style.display = 'block';
-
     // Else fetch data spanning the current bounds from the server
     fetch(dataset.fetchLotsUrl, {
         method: "POST",
         mode: "same-origin", 
-        cache: "no-cache", 
+        cache: "default", 
         credentials: "same-origin", 
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(currentBounds),
+        body: JSON.stringify({
+            bounds: currentBounds,
+            filter: filterData
+        }),
     })
-    .then(response => {
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
-        console.debug(data);
-        
         // If the source already exists we will add to the existing source
         // instead of overwriting it
         if (map.getSource('lots')) {
-
-            const currData = map.getSource('lots')._data.features;
+            // Get the loaded lots or empty array if nullish
+            const currData = map.getSource('lots')._data.features ?? [];
 
             // Add all feature that we don't already display
             for (const feature of data.features) {
                 const id = feature.properties.id;
                 if (currentlyLoadedLotIds.has(id)) {
-                    console.debug(`feature id ${id} already present` )
+                    // console.debug(`feature id ${id} already present` )
                     continue;
                 };
-                currData.push(feature)
+                currData.push(feature);
             }
 
             const updatedData = {
                 type: 'FeatureCollection',
                 features:  currData
             }
-            console.debug(updatedData)
+            // console.debug(updatedData)
             map.getSource('lots').setData(updatedData);
         }
         // First load
@@ -457,22 +493,8 @@ function renderLots(map, lastRenderedBounds, forceRender = false) {
                 type: "fill",
                 source: "lots",
                 paint: {
-                    "fill-outline-color": [
-                        'step', ['get', 'ivp'],
-                        '#198754',
-                        5, '#b1ce3c',
-                        10, '#ffd147',
-                        15, '#E86430',
-                        30, '#de2235'
-                    ],
-                    "fill-color": [
-                        'step', ['get', 'ivp'],
-                        '#198754',
-                        5, '#b1ce3c',
-                        10, '#ffd147',
-                        15, '#E86430',
-                        30, '#de2235'
-                    ],
+                    "fill-color": hlmStyles.ivpColorSteps,
+                    "fill-outline-color": hlmStyles.ivpColorSteps,
                     'fill-opacity': [
                         'case',
                         ['boolean', ['feature-state', 'hover'], false],
@@ -480,7 +502,7 @@ function renderLots(map, lastRenderedBounds, forceRender = false) {
                         [
                             'case',
                             ['boolean', ['feature-state', 'clicked'], false],
-                            0.75,
+                            0.75,   
                             0.5
                         ]
                     ]
@@ -519,18 +541,10 @@ function renderLots(map, lastRenderedBounds, forceRender = false) {
                 hoveredLotId = null;
             });
         }
-        
-        // hide the loader on successful load
-        document.getElementById("loader").style.display = "none";
-        
-        if (map.getLayoutProperty('hlm_point', 'visibility') === 'visible') {
-            // remove the point layer if visible
-            map.setLayoutProperty('hlm_point', 'visibility', 'none');
-        }
 
         // Add the IDs of the lots that got loaded
         for (const feature of data.features) {
-            console.debug(feature);
+            // console.debug(feature);
             currentlyLoadedLotIds.add(feature.properties.id);
         }
 
@@ -538,9 +552,6 @@ function renderLots(map, lastRenderedBounds, forceRender = false) {
     })
     .catch(error => {
         console.log(error);
-        // hide the loader on successful load
-        document.getElementById("loader").style.display = "none";
-
         // TODO: Show a error notification to user
     });
     

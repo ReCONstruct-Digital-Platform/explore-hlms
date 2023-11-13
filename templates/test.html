@@ -42,13 +42,14 @@
 
         map = new mapboxgl.Map({
             container: 'mapbox',
-            style: 'mapbox://styles/mapbox/light-v11',
+            style: 'mapbox://styles/mapbox/streets-v12',
             center: [-72.55424486768713, 46.772195471242426], // starting position [lng, lat]
             zoom: 12,
             maxZoom: 19,
             projection: 'globe',
             hash: true
         });
+
         document.map = map;
 
         // Add the control to the map.
@@ -65,6 +66,18 @@
         const lot_data = JSON.parse('{{ lot | tojson | safe}}');
         
         map.on('load', () => {
+            if (map.getStyle().name === 'Mapbox Streets') {
+                // Hide some layers in the streets-v12 map to unclutter
+                map.removeLayer('poi-label');
+                map.removeLayer('road-path');
+                map.removeLayer('road-path-bg');
+                map.removeLayer('crosswalks');
+                map.removeLayer('road-oneway-arrow-blue');
+                map.removeLayer('road-oneway-arrow-white');
+                map.removeLayer('road-number-shield');
+                map.removeLayer('road-exit-shield');
+            }
+
             // If no lot given
             if (!lot_data) return;
 
@@ -106,9 +119,10 @@
             .then(resp => resp.json())
             .then(data => {
 
-                console.debug(data);
+                console.debug(data.features[0].properties.id);
 
                 if (map.getLayer('lots_layer')) map.removeLayer('lots_layer');
+                if (map.getLayer('lots_label')) map.removeLayer('lots_label');
                 if (map.getSource('lots')) map.removeSource('lots');
                 
                 map.addSource("lots", {
@@ -126,10 +140,20 @@
                         'fill-opacity': 0.35
                     }
                 });
+                // Render the layer
+                map.addLayer({
+                    id: "lots_label",
+                    type: "symbol",
+                    source: "lots",
+                    layout: {
+                        "text-field": ["get", "id"],
+                        "text-allow-overlap": true,
+                    },
+                });
 
                 map.flyTo({
                     center: e.lngLat,
-                    zoom: map.getZoom() + 1
+                    zoom: map.getZoom()
                 });
             });
         });

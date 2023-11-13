@@ -32,45 +32,232 @@ Set the color of the loader
     fill: #000000;
 }
 
+
 .overlay {
     z-index: 1000; 
-    background-color: rgba(0,0,0,0.65);
+    background-color: rgba(0,0,0,0.75);
     color: #fff;
-    box-shadow: 0 1px 10px rgba(0, 0, 0, 0.10);
+    box-shadow: 0 0 10px 2px rgba(0,0,0,.1);
     border-radius: 3px;
 }
 
 #dev-info {
     position: fixed; 
     top: 20px; 
-    right: 20px; 
+    left: 20px; 
     padding: 10px;
 }
 
 #info-overlay {
+    display: flex;
+    visibility: hidden;
+    opacity: 0;
+    transition: visibility 0.25s, opacity 0.25s linear;
+
     position: fixed;
-    display:flex;
     flex-direction: column;
     width: auto;
-    max-width: 730px;
+    min-width: 500px;
+    max-width: 830px;
     max-height: 95%;
     overflow-y: auto;
     overflow-x: hidden;
     overflow-wrap: break-word;
-    top: 15px; 
-    left: 15px; 
+    top: 10px; 
+    right: 10px; 
+    /* left: 10px;  */
+    
     padding: 10px;
+
     margin-left: 5px;
     margin-top: 2px;
     margin-bottom: 2px;
     margin-right: 5px;
 }
 
+#info-overlay[data-visible=true] {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* custom scrollbar in the info overlay */
+#info-overlay::-webkit-scrollbar {
+    width: 17px;
+}
+  
+#info-overlay::-webkit-scrollbar-track {
+    background-color: transparent;
+}
+  
+#info-overlay::-webkit-scrollbar-thumb {
+    background-color: #b5b8b9;
+    border-radius: 20px;
+    border: 6px solid transparent;
+    background-clip: content-box;
+}
+
+#info-overlay::-webkit-scrollbar-thumb:hover {
+    background-color: #6a7173;
+}
+
 .select {
     margin-bottom: 10px;
+
 }
 
 #lot-info {
     display: flex;
     flex-direction: column;
 }
+
+#lot-info-top-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#close-button {
+    cursor: pointer;
+    fill: white;
+}
+
+#unit-address {
+    font-size: 22px;
+}
+
+hr {
+    margin: 0
+}
+
+
+.disrepair-badge {
+    padding: 3px;
+    min-width: 40px;
+    border-radius: 5px;
+}
+.disrepair-badge-A {
+    background-color: #198754;
+}
+.disrepair-badge-B {
+    background-color: #b1ce3c;
+    color: #000;
+}
+.disrepair-badge-C {
+    background-color: #ffd147;
+}
+.disrepair-badge-D {
+    background-color: #E86430;
+}
+.disrepair-badge-E {
+    --bs-badge-padding-x: 0.75em;
+    background-color: #de2235;
+}
+
+table.dataTable>thead {
+padding: 5
+}
+
+
+.info-overlay-section {
+    margin-top: .5em
+}
+
+.unit-info-subsection-header {
+    font-size: 18px;
+}
+
+.filter-section-header {
+    font-size: 18px;
+    border-bottom: 1px solid #fff;
+    margin-bottom: 10px;
+}
+
+#menu-overlay {
+    position: fixed;
+    z-index: 1000;
+    background: rgba(0,0,0,0.75);
+    height: 100%;
+    width: 30%;
+    min-width: 300px;
+    left: 0;
+    visibility: hidden;
+    opacity: 0;
+    transition: visibility 0.2s, opacity 0.25s linear;
+}
+
+#menu-overlay[data-visible=true] {
+    visibility: visible;
+    opacity: 1; 
+}
+
+#menu {
+    margin-top: 75px;
+    padding-left: 20px;
+    padding-right: 20px;
+}
+
+
+/* Cool menu button */
+
+#menu-overlay-button {
+    z-index: 1001;
+    position: fixed; 
+    top: 10px; 
+    left: 10px;
+
+    width: 50px;
+    aspect-ratio: 1;
+    /* display: grid; */
+    place-items: center;
+    padding: 5px 10px;
+    scale: 1;
+    background: rgba(0,0,0,0.65);
+    border: 0;
+    border-radius: 25%;
+    transition: background 0.2s;
+    cursor: pointer;
+  }
+  
+  #menu-overlay-button:is(:hover, :focus-visible) {
+    background: rgba(0,0,0,0.75);;
+  }
+  #menu-overlay-button[aria-pressed=true] {
+    background: transparent;
+  }
+  
+  #menu-overlay-button:is(:focus-visible) {
+    outline-color: hsl(320 80% 50% / 0.5);
+    outline-offset: 1rem;
+    outline-width: 4px;
+  }
+  
+  #menu-overlay-button svg:first-of-type {
+    width:100%;
+  }
+  
+  #menu-overlay-button rect {
+    transform-box: fill-box;
+    transform-origin: 50% 50%;
+    fill: hsl(0 0% 98%);
+  }
+
+  #menu-overlay-button[aria-pressed=true] rect { 
+    transition: translate 0.2s, rotate 0.2s 0.3s;
+  }
+  #menu-overlay-button rect {
+    transition: rotate 0.2s 0s, translate 0.2s 0.2s;
+  }
+  
+  #menu-overlay-button[aria-pressed=true] rect:nth-of-type(1) {
+    translate: 0 333%;
+    rotate: -45deg;
+  }
+  #menu-overlay-button[aria-pressed=true] rect:nth-of-type(2) {
+    rotate: 45deg;
+  }
+  #menu-overlay-button[aria-pressed=true] rect:nth-of-type(3) {
+    translate: 0 -333%;
+    rotate: 45deg;
+  }
+  
