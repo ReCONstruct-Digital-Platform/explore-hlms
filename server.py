@@ -11,10 +11,13 @@ MAPBOX_TOKEN = 'pk.eyJ1IjoibG9sb3ZvbmhvIiwiYSI6ImNsb2QxdDczeTAydG8yanJyN2lsNDVyM
 
 IMG_OUTPUT_DIR = 'screenshots'
 
-DB_CONF = dotenv_values(".env")
+ENV = dotenv_values(".env")
+EVALUNIT_TABLE = ENV['EVALUNIT_TABLE']
+HLM_TABLE = ENV['HLM_TABLE']
+LOT_TABLE = ENV['LOT_TABLE']
 
 def _new_conn():
-    conn = psycopg2.connect(user=DB_CONF['DB_USER'], password=DB_CONF['DB_PASSWORD'], database=DB_CONF['BIT_DB'])
+    conn = psycopg2.connect(host=ENV['DB_HOST'], port=ENV['DB_PORT'], user=ENV['DB_USER'], password=ENV['DB_PW'], database=ENV['DB_NAME'])
     cur = conn.cursor()
     return conn, cur
 
@@ -52,7 +55,7 @@ def test(id):
                 )
             )
         )
-        FROM lots WHERE id_provinc = %s""", (id,))
+        FROM {LOT_TABLE} WHERE id_provinc = %s""", (id,))
     res = cur.fetchone()[0]
     return render_template('test.html', mapbox_token=MAPBOX_TOKEN, lot=res)
 
@@ -85,7 +88,7 @@ def get_hlms():
                     )
                 )
             )
-        ) FROM hlms""")
+        ) FROM {HLM_TABLE}""")
     
     if request.method == 'POST':
         data = request.json
@@ -137,7 +140,7 @@ def getLotAtPosition():
                 )
             )
         )
-        FROM lots lots where st_intersects(geom, ST_SetSRID(ST_MakePoint(%s, %s),4326));
+        FROM {LOT_TABLE} lots where st_intersects(geom, ST_SetSRID(ST_MakePoint(%s, %s),4326));
     """, (data['lng'], data['lat'],))
 
     res = cur.fetchone()[0]
@@ -189,17 +192,17 @@ def get_lots():
             )
         ) from (
                 select e.*, e.geom as lot_geom,
-                json_agg(hlm.*) as hlms, round(avg(hlm.ivp)::numeric, 1) as avg_ivp,
-                json_agg(hlm.num_dwellings) as num_dwellings
-                from evalunits e
-                join hlms hlm on hlm.eval_unit_id = e.id
+                json_agg(h.*) as hlms, round(avg(h.ivp)::numeric, 1) as avg_ivp,
+                json_agg(h.num_dwellings) as num_dwellings
+                from {evalunit_table} e
+                join {hlm_table} h on h.eval_unit_id = e.id
                 {where_clause}
                 GROUP BY e.id
         ) as res;""")
     
     where_clause_parts = []
     where_clause_parts.append(
-        sql.SQL("WHERE ST_INTERSECTS(ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326), hlm.point)")
+        sql.SQL("WHERE ST_INTERSECTS(ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326), h.point)")
             .format(
                 minx=sql.Literal(minx), 
                 miny=sql.Literal(miny), 
@@ -210,68 +213,15 @@ def get_lots():
     where_clause_parts.append(_get_dwellings_filter(dwellings_min, dwellings_max))
     where_clause = sql.SQL(' AND ').join(where_clause_parts)
     
-    query = select_from.format(where_clause=where_clause)
+    query = select_from.format(
+        evalunit_table=sql.Identifier(EVALUNIT_TABLE),
+        hlm_table=sql.Identifier(HLM_TABLE),
+        where_clause=where_clause
+    )
     cur.execute(query)
     res = cur.fetchone()[0]
 
     return res
-
-# @app.route('/get_lots', methods=['POST'])
-# def get_lots():
-#     data = request.json
-#     _, cur = _new_conn()
-
-#     minx, miny = data['bounds']['_sw'].values()
-#     maxx, maxy = data['bounds']['_ne'].values()
-#     # ivp_range_min = data['filter']['ivpRangeMin']
-#     # ivp_range_max = data['filter']['ivpRangeMax']
-#     dwellings_min = data['filter']['dwellingsMin']
-#     dwellings_max = data['filter']['dwellingsMax']
-#     disrepair_categories = data['filter']['disrepairCategories'] or 'null'
-
-#     select_from = sql.SQL("""
-#         select json_build_object(
-#             'type', 'FeatureCollection', 'features', 
-#             json_agg(
-#                 json_build_object(
-#                     'type', 'Feature', 
-#                     'geometry', ST_AsGeoJSON(res.geom)::json,```
-#                     'properties', json_build_object(
-#                         'id', res.id,
-#                         'hlms', res.hlms,
-#                         'ivp', res.avg_ivp,
-#                         'num_dwellings', res.num_dwellings
-#                     ) 
-#                 )
-#             )
-#         ) from (
-#                 select e.*, e.lot_geom as geom,
-#                 json_agg(hlm.*) as hlms, round(avg(hlm.ivp)::numeric, 1) as avg_ivp,
-#                 json_agg(hlm.num_dwellings) as num_dwellings
-#                 from evalunits e
-#                 join hlms hlm on hlm.eval_unit_id = e.id
-#                 {where_clause}
-#                 GROUP BY e.id
-#         ) as res;""")
-    
-#     where_clause_parts = []
-#     where_clause_parts.append(
-#         sql.SQL("WHERE ST_INTERSECTS(ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326), hlm.point)")
-#             .format(
-#                 minx=sql.Literal(minx), 
-#                 miny=sql.Literal(miny), 
-#                 maxx=sql.Literal(maxx), 
-#                 maxy=sql.Literal(maxy))
-#     )
-#     where_clause_parts.append(_get_disrepair_category_filter(disrepair_categories))
-#     where_clause_parts.append(_get_dwellings_filter(dwellings_min, dwellings_max))
-#     where_clause = sql.SQL(' AND ').join(where_clause_parts)
-    
-#     query = select_from.format(where_clause=where_clause)
-#     cur.execute(query)
-#     res = cur.fetchone()[0]
-
-#     return res
 
 
 @app.route('/lot_info', methods=['POST'])
@@ -319,8 +269,8 @@ def lot_info():
                 )
             )
         ) 
-        from evalunits e 
-        join hlms hlm on hlm.eval_unit_id = e.id
+        from {EVALUNIT_TABLE} e 
+        join {HLM_TABLE} hlm on hlm.eval_unit_id = e.id
         where e.id = %s
         group by e.id, e.address;""", (eval_unit_id,))
     res = cur.fetchone()[0]
