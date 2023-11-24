@@ -1,12 +1,8 @@
 import IPython
-import json
 import psycopg2
 from psycopg2 import sql
-from time import time
-from pathlib import Path
-from pprint import pformat
 from dotenv import dotenv_values
-from flask import Flask, url_for, render_template, request, redirect, session
+from flask import Flask, render_template, request
 
 app = Flask(__name__)
 app.secret_key = b'_5#y2L"F4Qvsdsdufndsuifvbsivbvdubff/'
@@ -36,7 +32,6 @@ def index():
         dwellings_max = res[3] + 1,
         mapbox_token=MAPBOX_TOKEN
     )
-
 
 
 @app.route("/test", methods=['GET'])
@@ -220,6 +215,63 @@ def get_lots():
     res = cur.fetchone()[0]
 
     return res
+
+# @app.route('/get_lots', methods=['POST'])
+# def get_lots():
+#     data = request.json
+#     _, cur = _new_conn()
+
+#     minx, miny = data['bounds']['_sw'].values()
+#     maxx, maxy = data['bounds']['_ne'].values()
+#     # ivp_range_min = data['filter']['ivpRangeMin']
+#     # ivp_range_max = data['filter']['ivpRangeMax']
+#     dwellings_min = data['filter']['dwellingsMin']
+#     dwellings_max = data['filter']['dwellingsMax']
+#     disrepair_categories = data['filter']['disrepairCategories'] or 'null'
+
+#     select_from = sql.SQL("""
+#         select json_build_object(
+#             'type', 'FeatureCollection', 'features', 
+#             json_agg(
+#                 json_build_object(
+#                     'type', 'Feature', 
+#                     'geometry', ST_AsGeoJSON(res.geom)::json,```
+#                     'properties', json_build_object(
+#                         'id', res.id,
+#                         'hlms', res.hlms,
+#                         'ivp', res.avg_ivp,
+#                         'num_dwellings', res.num_dwellings
+#                     ) 
+#                 )
+#             )
+#         ) from (
+#                 select e.*, e.lot_geom as geom,
+#                 json_agg(hlm.*) as hlms, round(avg(hlm.ivp)::numeric, 1) as avg_ivp,
+#                 json_agg(hlm.num_dwellings) as num_dwellings
+#                 from evalunits e
+#                 join hlms hlm on hlm.eval_unit_id = e.id
+#                 {where_clause}
+#                 GROUP BY e.id
+#         ) as res;""")
+    
+#     where_clause_parts = []
+#     where_clause_parts.append(
+#         sql.SQL("WHERE ST_INTERSECTS(ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326), hlm.point)")
+#             .format(
+#                 minx=sql.Literal(minx), 
+#                 miny=sql.Literal(miny), 
+#                 maxx=sql.Literal(maxx), 
+#                 maxy=sql.Literal(maxy))
+#     )
+#     where_clause_parts.append(_get_disrepair_category_filter(disrepair_categories))
+#     where_clause_parts.append(_get_dwellings_filter(dwellings_min, dwellings_max))
+#     where_clause = sql.SQL(' AND ').join(where_clause_parts)
+    
+#     query = select_from.format(where_clause=where_clause)
+#     cur.execute(query)
+#     res = cur.fetchone()[0]
+
+#     return res
 
 
 @app.route('/lot_info', methods=['POST'])
