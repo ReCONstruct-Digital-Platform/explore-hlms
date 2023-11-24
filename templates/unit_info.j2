@@ -26,32 +26,80 @@
     </div>
     <div>
         {% if unit.num_adr_sup %}
-        <small>(multiple addresses)</small>
+        <small>(plusieurs addresses)</small>
         {% endif %}
     </div>
 
     <div id="lot-characteristics" class="info-overlay-section">
-        <div class="unit-info-subsection-header">
-            Lot Info
+        <div class="unit-info-subsection-header d-flex align-items-center">
+            Caractéristiques du terrain
+            <a class="btn info-icon pb-2 ps-2" type="button" target="_blank" 
+                href="https://www.donneesquebec.ca/recherche/dataset/061c8cb7-ca4e-45be-a990-61fce7e7d2dc/resource/6f2599be-e49d-4b9a-8702-b12ad0f56141/download/gui_donneesrolesformatouvert_vf20220627.pdf#page=13">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" class="bi bi-info-circle" viewBox="0 0 16 16">
+                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                    <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+                </svg>
+            </a>
+            
         </div>
         <hr style="margin: 0;">
         <table id="lot-info-table">
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Area</th>
-                    <th>Lin. Dim.</th>
-                    <th>Owner type</th>
-                    <th>Owner status</th>
+                    <th>Superficie</th>
+                    <th>Mesure frontale</th>
+                    <th>Type Proprio</th>
+                    <th>Status Proprio</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
                     <td>{{unit.lot_number}} </td>
-                    <td>{{unit.lot_area}} m<sup>2</sup></td>
-                    <td>{{unit.lot_lin_dim}} m</td>
-                    <td>{{unit.owner_type}}</td>
-                    <td>{{unit.owner_status}}</td>
+                    <td>
+                    {% if unit.lot_area %}
+                        {{unit.lot_area}} m<sup>2</sup>
+                    {% else %}
+                        &mdash;
+                    {% endif %}
+                    </td>
+                    <td>
+                    {% if unit.lot_lin_dim %}
+                        {{unit.lot_lin_dim}} m
+                    {% else %}
+                        &mdash;
+                    {%endif%}
+                    </td>
+                    <td>
+                    {% if unit.owner_type == 'moral' %}
+                        Personne morale
+                    {% else %}
+                        Persone Physique
+                    {% endif %}
+                    </td>
+                    <td>
+                    {% if unit.owner_status == 'landowner' %}
+                        Propriétaire du terrain
+                    {% elif unit.owner_status == 'lessor'%}
+                        Emphytéote
+                    {% elif unit.owner_status == 'condo owner' %}
+                        Propriétaire d'une copropriété divise
+                    {% elif unit.owner_status == 'lessor of public land'%}
+                        Locataire d'un terrain de l'État
+                    {% elif unit.owner_status == 'tenant of tax-exempt building' %}
+                        Occupant d'un immeuble exempté de taxes
+                    {% elif unit.owner_status == 'building owner on public land' %}
+                        Propriétaire d'un bâtiment sur un terrain public
+                    {% elif unit.owner_status == 'trailer building owner' %}
+                        Propriétaire d'une roulotte devenue immeuble
+                    {% elif unit.owner_status == 'undivided co-owner' %}
+                        Copropriétaire indivis par déclaration publiée
+                    {% elif unit.owner_status == 'other' %}
+                        Autre.
+                    {% else %}
+                        &mdash;
+                    {%endif%}
+                    </td>
                 </tr>
             </tbody>
         </table>
@@ -66,37 +114,96 @@
     </div>
 
     <div id="building-characteristics" class="mt-2">
-        <div id="unit-phys-chars" class="unit-info-subsection-header">
-            Buildings Info
+        <div id="unit-phys-chars" class="unit-info-subsection-header d-flex align-items-center">
+            Caractéristiques du bâtiment principal
+            <a class="btn info-icon pb-2 ps-2" type="button" target="_blank" 
+                href="https://www.donneesquebec.ca/recherche/dataset/061c8cb7-ca4e-45be-a990-61fce7e7d2dc/resource/6f2599be-e49d-4b9a-8702-b12ad0f56141/download/gui_donneesrolesformatouvert_vf20220627.pdf#page=16">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" class="bi bi-info-circle" viewBox="0 0 16 16">
+                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                    <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+                </svg>
+            </a>
         </div>
         <hr style="margin: 0;">
 
         <table id="lot-building-table">
             <thead>
                 <tr>
-                    <th>Dwellings</th>
-                    <th>Max floors</th>
-                    <th>Built in</th>
-                    <th>Floor area</th>
-                    <th>Physical Link</th>
-                    <th>Const. type</th>
+                    <th>Habitations</th>
+                    <th>Max. Étages</th>
+                    <th>Année Constr.</th>
+                    <th>Aire d'étages</th>
+                    <th>Lien Physique</th>
+                    <th>Type Constr.</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td>{{unit.num_dwelling}}</td>
-                    <td>{{unit.max_floor}}</td>
+                    <td>
+                    {% if unit.num_dwelling %}
+                        {{unit.num_dwelling}}
+                    {% else %}
+                        &mdash;
+                    {% endif %}
+                    </td>
+
+                    <td>
+                    {% if unit.max_floor %}
+                        {{unit.max_floor}}
+                    {% else %}
+                        &mdash;
+                    {% endif %}
+                    </td>
+
                     <td>                
                     {% if unit.const_yr %}
                     {{ unit.const_yr }}
                         {% if unit.const_yr_real == 'E' %}
                             (est.)
                         {% endif %} 
+                    {% else %}
+                        &mdash;
                     {% endif %}
                     </td>
-                    <td>{{unit.floor_area}} m<sup>2</sup></td>
-                    <td>{{unit.phys_link}}</td>
-                    <td>{{unit.const_type}}</td>
+
+                    <td>
+                    {% if unit.floor_area %}
+                        {{unit.floor_area}} m<sup>2</sup>
+                    {% else %}
+                        &mdash;
+                    {% endif %}
+                    </td>
+
+                    <td>
+                    {% if unit.phys_link == 'single-detached' %}
+                        Détaché
+                    {% elif unit.phys_link == 'semi-detached' %}
+                        Jumelé
+                    {% elif unit.phys_link == 'row house (one side)' %}
+                        En rangée 1 côté
+                    {% elif unit.phys_link == 'row house' %}
+                        En rangée plus de 1 côté
+                    {% elif unit.phys_link == 'integrated' %}
+                        Intégré
+                    {% else %}
+                        &mdash;
+                    {% endif %}
+                    </td>
+                    <td>
+                        {% if unit.const_type == 'single-storey' %}
+                            De plain-pied
+                        {% elif unit.const_type == 'staggered-level' %}
+                            À niveaux décalés
+                        {% elif unit.const_type == 'modular prefab' %}
+                            Unimodulaire
+                        {% elif unit.const_type == 'attic' %}
+                            À étage mansardé
+                        {% elif unit.const_type == 'full-storey' %}
+                            À étages entiers
+                        {% else %}
+                        &mdash;
+                        {% endif %}
+                    </td>
                 </tr>
             </tbody>
         </table>
@@ -121,11 +228,19 @@
         <table id="lot-hlms-table">
             <thead>
                 <tr>
-                    <th>Address</th>
-                    <th>Dwellings</th>
-                    <th>Floors</th>
-                    <th>IVP</th>
-                    <th>Category</th>
+                    <th>Addresse</th>
+                    <th>Habitations</th>
+                    <th>Étages</th>
+                    <th class="d-flex align-items-center">IVP
+                        <a class="btn info-icon pb-2 ps-2" type="button" target="_blank" 
+                            href="http://www.habitation.gouv.qc.ca/fileadmin/internet/documents/partenaires/guides/guide-immeuble-supplement1-section02.pdf#page=4">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" class="bi bi-info-circle" viewBox="0 0 16 16">
+                                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+                            </svg>
+                        </a>
+                    </th>
+                    <th>Categorie</th>
                 </tr>
             </thead>
             <tbody>
