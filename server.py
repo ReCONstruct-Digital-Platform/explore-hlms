@@ -1,23 +1,31 @@
+import os
 import IPython
 import psycopg2
 from psycopg2 import sql
-from dotenv import dotenv_values
+from dotenv import dotenv_values, load_dotenv
 from flask import Flask, render_template, request
 
 app = Flask(__name__)
-app.secret_key = b'_5#y2L"F4Qvsdsdufndsuifvbsivbvdubff/'
-
-MAPBOX_TOKEN = 'pk.eyJ1IjoibG9sb3ZvbmhvIiwiYSI6ImNsb2QxdDczeTAydG8yanJyN2lsNDVyMzQifQ.YMU_zf_0bScIphRc_MDVtg'
 
 IMG_OUTPUT_DIR = 'screenshots'
 
-ENV = dotenv_values(".env")
-EVALUNIT_TABLE = ENV['EVALUNIT_TABLE']
-HLM_TABLE = ENV['HLM_TABLE']
-LOT_TABLE = ENV['LOT_TABLE']
+load_dotenv(".env")
+
+DB_USER = os.getenv('DB_USER')
+DB_PW = os.getenv('DB_PW')
+DB_NAME = os.getenv('DB_NAME')
+DB_HOST = os.getenv('DB_HOST')
+DB_PORT = os.getenv('DB_PORT')
+EVALUNIT_TABLE = os.getenv('EVALUNIT_TABLE')
+HLM_TABLE = os.getenv('HLM_TABLE') 
+LOT_TABLE = os.getenv('LOT_TABLE')
+MAPBOX_TOKEN = os.getenv('MAPBOX_TOKEN')
+app.secret_key = os.getenv('SECRET_KEY')
+
 
 def _new_conn():
-    conn = psycopg2.connect(host=ENV['DB_HOST'], port=ENV['DB_PORT'], user=ENV['DB_USER'], password=ENV['DB_PW'], database=ENV['DB_NAME'])
+    # conn = psycopg2.connect(host=ENV['DB_HOST'], port=ENV['DB_PORT'], user=ENV['DB_USER'], password=ENV['DB_PW'], database=ENV['DB_NAME'])
+    conn = psycopg2.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PW, database=DB_NAME)
     cur = conn.cursor()
     return conn, cur
 
