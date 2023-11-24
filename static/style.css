@@ -154,8 +154,48 @@ hr {
     background-color: #de2235;
 }
 
-table.dataTable>thead {
-padding: 5
+
+
+.button-disrepair:hover {
+    border-color: #fff !important;
+}
+
+.button-disrepair {
+    border: solid 1px grey !important;
+    color: white !important;
+    background-color: grey !important;
+}
+
+.button-disrepair:checked,
+.button-disrepair.active {
+    border: solid 1px white !important;
+    color: white !important;
+}
+.button-disrepair-A.active {
+    background-color: #198754 !important;
+    border-color: #198754 !important;
+}
+.button-disrepair-B.active {
+    background-color: #b1ce3c !important;
+    border-color: #b1ce3c !important;
+    color: #000;
+}
+.button-disrepair-C.active {
+    background-color: #ffd147 !important;
+    border-color: #ffd147 !important;
+}
+.button-disrepair-D.active {
+    background-color: #E86430 !important;
+    border-color: #E86430 !important;
+}
+.button-disrepair-E.active {
+    background-color: #de2235 !important;
+    border-color: #de2235 !important;
+}
+
+
+table.dataTable>thead { 
+    padding: 5
 }
 
 

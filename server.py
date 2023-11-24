@@ -1,6 +1,7 @@
 import IPython
 import json
 import psycopg2
+from psycopg2 import sql
 from time import time
 from pathlib import Path
 from pprint import pformat
@@ -63,78 +64,64 @@ def test(id):
 
 @app.route("/get_hlms", methods=['GET', 'POST'])
 def get_hlms():
-    _, cur = _new_conn()
+    conn, cur = _new_conn()
+
+    select = sql.SQL(f"""
+        SELECT json_build_object(
+            'type', 'FeatureCollection', 'features', 
+            json_agg(
+                json_build_object(
+                    'type', 'Feature', 
+                    'geometry', ST_AsGeoJSON(point)::json,
+                    'properties', json_build_object(
+                        'id', id,
+                        'eval_unit_id', eval_unit_id, 
+                        'organism', organism, 
+                        'service_center', service_center, 
+                        'address', address, 
+                        'muni', muni, 
+                        'num_dwellings', num_dwellings, 
+                        'num_floors', num_floors, 
+                        'area_footprint', area_footprint, 
+                        'area_total', area_total, 
+                        'ivp', ivp, 
+                        'disrepair_state', disrepair_state, 
+                        'category', category
+                    )
+                )
+            )
+        ) FROM hlms""")
     
     if request.method == 'POST':
         data = request.json
-        print(data)
-        ivp_range_min = data['filter']['ivpRangeMin']
-        ivp_range_max = data['filter']['ivpRangeMax']
-        dwellings_range_min = data['filter']['dwellingsRangeMin']
-        dwellings_range_max = data['filter']['dwellingsRangeMax']
+        # ivp_range_min = data['filter']['ivpRangeMin']
+        # ivp_range_max = data['filter']['ivpRangeMax']
+        dwellings_min = data['filter']['dwellingsMin']
+        dwellings_max = data['filter']['dwellingsMax']
+        disrepair_categories = data['filter']['disrepairCategories'] or 'null'
 
-        # TODO: SANITIZE THIS
-        # -- I think cursor.execute() will sanitize the input
-        # Once we intergrate in Django, we can use the ORM
-        cur.execute(f"""
-            SELECT json_build_object(
-                'type', 'FeatureCollection', 'features', 
-                json_agg(
-                    json_build_object(
-                        'type', 'Feature', 
-                        'geometry', ST_AsGeoJSON(point)::json,
-                        'properties', json_build_object(
-                            'id', id,
-                            'eval_unit_id', eval_unit_id, 
-                            'organism', organism, 
-                            'service_center', service_center, 
-                            'address', address, 
-                            'muni', muni, 
-                            'num_dwellings', num_dwellings, 
-                            'num_floors', num_floors, 
-                            'area_footprint', area_footprint, 
-                            'area_total', area_total, 
-                            'ivp', ivp, 
-                            'disrepair_state', disrepair_state, 
-                            'category', category
-                        )
-                    )
-                )
-            ) FROM hlms
-            WHERE ivp between %s and %s
-            AND num_dwellings between %s and %s; 
-        """, (ivp_range_min, ivp_range_max, dwellings_range_min, dwellings_range_max,))
+        where_clause_parts = []
+        where_clause_parts.append(_get_disrepair_category_filter(disrepair_categories))
+        where_clause_parts.append(_get_dwellings_filter(dwellings_min, dwellings_max))
+        where_clause = sql.SQL(' AND ').join(where_clause_parts)
+
+        query = sql.SQL("{select} WHERE {where_clause}").format(
+            select=select,
+            where_clause=where_clause
+        )
+        cur.execute(query)
 
     else:
-        cur.execute(f"""
-            SELECT json_build_object(
-                'type', 'FeatureCollection', 'features', 
-                json_agg(
-                    json_build_object(
-                        'type', 'Feature', 
-                        'geometry', ST_AsGeoJSON(point)::json,
-                        'properties', json_build_object(
-                            'id', id,
-                            'eval_unit_id', eval_unit_id, 
-                            'organism', organism, 
-                            'service_center', service_center, 
-                            'address', address, 
-                            'muni', muni, 
-                            'num_dwellings', num_dwellings, 
-                            'num_floors', num_floors, 
-                            'area_footprint', area_footprint, 
-                            'area_total', area_total, 
-                            'ivp', ivp, 
-                            'disrepair_state', disrepair_state, 
-                            'category', category
-                        )
-                    )
-                )
-            ) FROM hlms;
-        """)
+        cur.execute(select)
+
     res = cur.fetchone()[0]
 
+    # Needed so we can display no data
+    if res['features'] is None:
+        res['features'] = []
+
     return res
+
 
 @app.route("/get_lot", methods=['POST'])
 def getLotAtPosition():
@@ -161,6 +148,22 @@ def getLotAtPosition():
     res = cur.fetchone()[0]
     return res
 
+
+def _get_disrepair_category_filter(disrepair_categories):
+    return sql.SQL("disrepair_state IN ({disrepair_categories})").format(
+        disrepair_categories=sql.SQL(", ").join(
+            [sql.Literal(c) for c in disrepair_categories] if disrepair_categories else sql.SQL('Null')
+        )
+    )
+
+def _get_dwellings_filter(dwellings_min, dwellings_max):
+    return sql.SQL(
+        'num_dwellings between {dwellings_min} and {dwellings_max}'
+    ).format(
+        dwellings_min=sql.Literal(dwellings_min),
+        dwellings_max=sql.Literal(dwellings_max),
+    )
+
 @app.route('/get_lots', methods=['POST'])
 def get_lots():
     data = request.json
@@ -168,13 +171,13 @@ def get_lots():
 
     minx, miny = data['bounds']['_sw'].values()
     maxx, maxy = data['bounds']['_ne'].values()
-    ivp_range_min = data['filter']['ivpRangeMin']
-    ivp_range_max = data['filter']['ivpRangeMax']
-    dwellings_range_min = data['filter']['dwellingsRangeMin']
-    dwellings_range_max = data['filter']['dwellingsRangeMax']
+    # ivp_range_min = data['filter']['ivpRangeMin']
+    # ivp_range_max = data['filter']['ivpRangeMax']
+    dwellings_min = data['filter']['dwellingsMin']
+    dwellings_max = data['filter']['dwellingsMax']
+    disrepair_categories = data['filter']['disrepairCategories'] or 'null'
 
-    # V2.0 Fetches the lots based on the eval unit point being in the bounds AND extra conditions on eval unit
-    cur.execute(f"""
+    select_from = sql.SQL("""
         select json_build_object(
             'type', 'FeatureCollection', 'features', 
             json_agg(
@@ -195,12 +198,25 @@ def get_lots():
                 json_agg(hlm.num_dwellings) as num_dwellings
                 from evalunits e
                 join hlms hlm on hlm.eval_unit_id = e.id
-                where ST_INTERSECTS(ST_MakeEnvelope(%s, %s, %s, %s, 4326), hlm.point)
-                AND hlm.ivp between %s and %s
-                AND hlm.num_dwellings between %s and %s
-                group by e.id
-            ) as res;""", 
-        (minx, miny, maxx, maxy, ivp_range_min, ivp_range_max, dwellings_range_min, dwellings_range_max))
+                {where_clause}
+                GROUP BY e.id
+        ) as res;""")
+    
+    where_clause_parts = []
+    where_clause_parts.append(
+        sql.SQL("WHERE ST_INTERSECTS(ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326), hlm.point)")
+            .format(
+                minx=sql.Literal(minx), 
+                miny=sql.Literal(miny), 
+                maxx=sql.Literal(maxx), 
+                maxy=sql.Literal(maxy))
+    )
+    where_clause_parts.append(_get_disrepair_category_filter(disrepair_categories))
+    where_clause_parts.append(_get_dwellings_filter(dwellings_min, dwellings_max))
+    where_clause = sql.SQL(' AND ').join(where_clause_parts)
+    
+    query = select_from.format(where_clause=where_clause)
+    cur.execute(query)
     res = cur.fetchone()[0]
 
     return res

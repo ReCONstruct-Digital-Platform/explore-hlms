@@ -34,22 +34,51 @@
                     <div id="data-layer-select">
                         <input id="hlms" type="radio" name="data-select" value="hlms" checked="checked">
                         <label for="hlms">HLMs</label>
-                        <input id="murbs" type="radio" name="data-select" value="murbs">
-                        <label for="murbs">MURBs</label>
+                        <!-- <input id="murbs" type="radio" name="data-select" value="murbs">
+                        <label for="murbs">MURBs</label> -->
                     </div>
                 </div>
                 
                 <div class="filter-section-header">
-                    IVP % (Disrepair State)
+                    Disrepair State
                 </div>
-                <range-selector 
-                    id="ivp-range-slider"
-                    min-range="{{ ivp_min }}" 
-                    max-range="{{ ivp_max }}" 
-                    slider-color="#6b5b95"
-                    number-of-legend-items-to-show="2"
-                    inputs-for-labels>
-                </range-selector>
+
+                <div class="d-inline-flex gap-2 mb-3">
+                    <button id="button-disrepair-A" data-value="A" type="button" class="btn button-disrepair button-disrepair-A active" data-bs-toggle="button" aria-pressed="true">A</button>
+                    <button id="button-disrepair-B" data-value="B" type="button" class="btn button-disrepair button-disrepair-B active" data-bs-toggle="button" aria-pressed="true">B</button>
+                    <button id="button-disrepair-C" data-value="C" type="button" class="btn button-disrepair button-disrepair-C active" data-bs-toggle="button" aria-pressed="true">C</button>
+                    <button id="button-disrepair-D" data-value="D" type="button" class="btn button-disrepair button-disrepair-D active" data-bs-toggle="button" aria-pressed="true">D</button>
+                    <button id="button-disrepair-E" data-value="E" type="button" class="btn button-disrepair button-disrepair-E active" data-bs-toggle="button" aria-pressed="true">E</button>
+                </div>
+
+                
+                <div>
+                    <div class="filter-section-header">
+                        <label for="cluster-range-slider">Clustering</label>
+                    </div>
+
+                    <div class="d-flex mb-2" style="font-size: 18px;">
+                        Cluster
+                        <div class="form-check form-switch ms-3">
+                            <input id="clusterSwitch" class="form-check-input" type="checkbox" role="switch" checked>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div style="font-size: 18px;">
+                            <label for="cluster-range-slider">Clustering Radius</label>
+                        </div>
+                        <input type="range" class="form-range" id="cluster-range-slider" 
+                            min="20" max="80" value="60" step="10">
+                        <div class="d-flex justify-content-between">
+                            <p>20</p>
+                            <p>80</p>
+                        </div>
+                    </div>
+
+                </div>
+
+                
 
 
                 <div class="filter-section-header">
@@ -64,9 +93,9 @@
                     inputs-for-labels>
                 </range-selector>
 
-                <button id="filter-submit" class="btn btn-light" type="submit">
+                <!-- <button id="filter-submit" class="btn btn-light" type="submit">
                     Update
-                </button>
+                </button> -->
             </div>
         </div>
         
@@ -82,6 +111,7 @@
             data-dwellings-range-min="{{ dwellings_min }}" 
             data-dwellings-range-max="{{ dwellings_max }}" 
         ></script>
+        <script src="{{ url_for('static', filename='scripts/page.js') }}"></script>
         <script src="{{ url_for('static', filename='scripts/utils.js') }}"></script>
         <script type="text/javascript" src="{{ url_for('static', filename='scripts/simpleRange.min.js') }}"></script>
     </div>

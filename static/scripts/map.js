@@ -13,109 +13,109 @@ const HLM_OVERLAY_EASE_TO_ZOOM = 16.5;
 const currentlyLoadedLotIds = new Set();
 
 // objects for caching and keeping track of HTML marker objects (for performance)
-const markers = {};
+var markers = {};
 let markersOnScreen = {};
 
 // filters for classifying HLMs into IVP categories
 const ivpA = ['<=', ['get', 'ivp'], 5.1];
 const ivpB = ['all', ['>', ['get', 'ivp'], 5.1], ['<=', ['get', 'ivp'], 10]];
-const ivpC = ['all', ['>', ['get', 'ivp'], 10], ['<=', ['get', 'ivp'], 15]];
-const ivpD = ['all', ['>', ['get', 'ivp'], 15], ['<=', ['get', 'ivp'], 30]];
+const ivpC = ['all', ['>', ['get', 'ivp'], 10], ['<=', ['get', 'ivp'], 15.1]];
+const ivpD = ['all', ['>', ['get', 'ivp'], 15.1], ['<=', ['get', 'ivp'], 30]];
 const ivpE = ['>', ['get', 'ivp'], 30];
 
 const colors = ['#198754', '#b1ce3c', '#ffd147', '#E86430', '#de2235'];
 
-const filterData = {
-    ivpRangeMin: dataset.ivpRangeMin,
-    ivpRangeMax: dataset.ivpRangeMax,
-    dwellingsRangeMin: dataset.dwellingsRangeMin,
-    dwellingsRangeMax: dataset.dwellingsRangeMax,
-};
-
-var lastLoadedFilter = {};
-
-function setUpFilter() {
-
-    document.getElementById('ivp-range-slider')
-        .addEventListener('range-changed', (e) => {
-            const data = e.detail;
-            filterData.ivpRangeMin = data.minRangeValue;
-            filterData.ivpRangeMax = data.maxRangeValue;
-        });
-
-    document.getElementById('dwellings-range-slider')
-        .addEventListener('range-changed', (e) => {
-            const data = e.detail;
-            filterData.dwellingsRangeMin = data.minRangeValue;
-            filterData.dwellingsRangeMax = data.maxRangeValue;
-            dwellingsFilterChanged = true;
-        });
 
 
-    const submitFilterButton = document.getElementById('filter-submit');
+function resetClusterMarkers() {
+    Object.entries(markers).forEach(m => m[1].remove());
+    Object.entries(markersOnScreen).forEach(m => m[1].remove());
+    markers = {};
+    markersOnScreen = {};
+}
 
-    submitFilterButton.addEventListener('click', async () => {
+function mapRenderListener() {
+    if (!map.getSource('hlms') || !map.isSourceLoaded("hlms")) return;
+    renderClusterMarkers();
+}
+
+// https://github.com/mapbox/mapbox-gl-js/issues/2613
+function renderClusterMarkers() {
+    const newMarkers = {};
+    const features = map.querySourceFeatures("hlms");
+    
+    // for every cluster on the screen, create an HTML marker for it (if we didn't yet),
+    // and add it to the map if it's not there already
+    for (const feature of features) {
+        const coords = feature.geometry.coordinates;
+        const props = feature.properties;
+        // If feature is not part of cluster return
+        if (!props.cluster) continue;
         
-        // Check if the filter has actually changed
-        if (JSON.stringify(filterData) === JSON.stringify(lastLoadedFilter)) {
-            console.debug('same filters');
-            return;
-        } 
-
-        console.log(filterData);
-
-        // Need to fetch filtered hlms from server, so clusters regenerate properly
-        const hlms = await fetch("/get_hlms", {
-            method: 'POST',
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({filter: filterData})
-        }).then(resp => resp.json());
-
-        map.getSource('hlms').setData(hlms);
-
-        if (map.getSource('lots')) {
-            const lots = await fetch(dataset.fetchLotsUrl, {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({
-                    bounds: map.getBounds(),
-                    filter: filterData
-                })
-            }).then(resp => resp.json());
+        const id = props.cluster_id;
+        
+        let marker = markers[id];
+        if (!marker) {
+            const el = createDonutChart(props, colors);
+            marker = markers[id] = new mapboxgl.Marker({
+                element: el,
+            }).setLngLat(coords);
             
-            lots.features = lots.features ?? [];
-
-            map.getSource('lots').setData(lots);
-            renderClusterMarkers();
+            el.addEventListener('click',  () => {
+                map.getSource('hlms').getClusterExpansionZoom(id,
+                    (err, zoom) => {
+                        if (err) return;
+                        map.easeTo({
+                            center: coords,
+                            zoom: zoom + 2
+                        });
+                    }
+                );
+            })
         }
-
-        lastLoadedFilter = structuredClone(filterData);
-    })
+        newMarkers[id] = marker;
+        
+        if (!markersOnScreen[id]) marker.addTo(map);
+    }
+    
+    // for every marker we've added previously, remove those that are no longer visible
+    for (const id in markersOnScreen) {
+        if (!newMarkers[id]) markersOnScreen[id].remove();
+    }
+    markersOnScreen = newMarkers;
 }
 
 
-async function drawMapLayers() {
+async function drawMapLayers(cluster=true, clusterRadius=60) {
     console.debug("Adding HLMs layer and Events");
-
+    
     // Get the HLMs from the server
-    const hlms = await fetch("/get_hlms", {cache: 'no-cache'}).then(resp => resp.json());
+    const hlms = await fetch("/get_hlms", {
+        method: 'POST',
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({filter: filterData})
+    }).then(resp => resp.json());
 
     map.addSource("hlms", {
         type: "geojson",
         data: hlms,
-        cluster: true,
-        clusterMaxZoom: 13,
-        clusterMinPoints: 2,
-        clusterRadius: 80,
-        clusterProperties: {
-            num_dwellings: ["+", ["get", "num_dwellings"]],
-            // keep counts of the number of dwelling in each IVP category
-            ivpA: ["+", ['*', ['get', 'num_dwellings'], ["case", ivpA, 1, 0]]],
-            ivpB: ["+", ['*', ['get', 'num_dwellings'], ["case", ivpB, 1, 0]]],
-            ivpC: ["+", ['*', ['get', 'num_dwellings'], ["case", ivpC, 1, 0]]],
-            ivpD: ["+", ['*', ['get', 'num_dwellings'], ["case", ivpD, 1, 0]]],
-            ivpE: ["+", ['*', ['get', 'num_dwellings'], ["case", ivpE, 1, 0]]],
-        },
+        // Conditionally add the following properties for clustering
+        ...(cluster && {
+                cluster: true,
+                clusterMaxZoom: 16,
+                clusterMinPoints: 2,
+                clusterRadius: clusterRadius,
+                clusterProperties: {
+                num_dwellings: ["+", ["get", "num_dwellings"]],
+                // keep counts of the number of dwelling in each IVP category
+                ivpA: ["+", ['*', ['get', 'num_dwellings'], ["case", ivpA, 1, 0]]],
+                ivpB: ["+", ['*', ['get', 'num_dwellings'], ["case", ivpB, 1, 0]]],
+                ivpC: ["+", ['*', ['get', 'num_dwellings'], ["case", ivpC, 1, 0]]],
+                ivpD: ["+", ['*', ['get', 'num_dwellings'], ["case", ivpD, 1, 0]]],
+                ivpE: ["+", ['*', ['get', 'num_dwellings'], ["case", ivpE, 1, 0]]],
+            },
+        }
+        )
     });
     
     // Add the HLM points layer
@@ -156,7 +156,7 @@ async function drawMapLayers() {
         filter: ["!=", "cluster", true],
         layout: {
             "text-field": ["get", "num_dwellings"],
-            "text-allow-overlap": true,
+            "text-allow-overlap": false,
         },
         maxzoom: HLM_OVERLAY_EASE_TO_ZOOM
     });
@@ -175,59 +175,14 @@ async function drawMapLayers() {
         minzoom: HLM_OVERLAY_EASE_TO_ZOOM
     });
     
-    
-
-    // https://github.com/mapbox/mapbox-gl-js/issues/2613
-    function renderClusterMarkers() {
-        const newMarkers = {};
-        const features = map.querySourceFeatures("hlms");
-        
-        // for every cluster on the screen, create an HTML marker for it (if we didn't yet),
-        // and add it to the map if it's not there already
-        for (const feature of features) {
-            const coords = feature.geometry.coordinates;
-            const props = feature.properties;
-            // If feature is not part of cluster return
-            if (!props.cluster) continue;
-            
-            const id = props.cluster_id;
-            
-            let marker = markers[id];
-            if (!marker) {
-                const el = createDonutChart(props, colors);
-                marker = markers[id] = new mapboxgl.Marker({
-                    element: el,
-                }).setLngLat(coords);
-                
-                el.addEventListener('click',  () => {
-                    map.getSource('hlms').getClusterExpansionZoom(id,
-                        (err, zoom) => {
-                            if (err) return;
-                            map.easeTo({
-                                center: coords,
-                                zoom: zoom + 2
-                            });
-                        }
-                    );
-                })
-            }
-            newMarkers[id] = marker;
-            
-            if (!markersOnScreen[id]) marker.addTo(map);
-        }
-        
-        // for every marker we've added previously, remove those that are no longer visible
-        for (const id in markersOnScreen) {
-            if (!newMarkers[id]) markersOnScreen[id].remove();
-        }
-        markersOnScreen = newMarkers;
+    // Reset markes on Screen if it exists
+    if (markers || markersOnScreen) {
+        resetClusterMarkers();
     }
+
         
     // after the GeoJSON data is loaded, update markers on the screen on every frame
-    map.on("render", () => {
-        if (!map.isSourceLoaded("hlms")) return;
-        renderClusterMarkers();
-    });
+    map.on("render", mapRenderListener);
     
     // When a click event occurs on a feature in
     map.on("click", "hlm_point", hlmPointClickHandler);
@@ -255,22 +210,7 @@ function hlmPointClickHandler(e) {
 }
 
 
-function setUpMenuButton() {
-    const menu = document.getElementById('menu-overlay');
-    const menuButton = document.getElementById('menu-overlay-button');
-
-    menuButton.addEventListener('click', () => {
-        menuButton.setAttribute('aria-pressed', menuButton.matches('[aria-pressed=true]') ? false : true);
-        menu.setAttribute('data-visible', menu.matches('[data-visible=true]') ? false : true);
-    });
-
-}
-
 document.addEventListener("DOMContentLoaded", () => {
-
-    setUpMenuButton();
-
-    setUpFilter();
 
     mapboxgl.accessToken = dataset.mapboxToken;
     map = new mapboxgl.Map({
@@ -456,7 +396,7 @@ function renderLots(map, lastRenderedBounds, forceRender = false) {
         }),
     })
     .then(response => response.json())
-    .then(data => {
+    .then(data => { 
         // If the source already exists we will add to the existing source
         // instead of overwriting it
         if (map.getSource('lots')) {
