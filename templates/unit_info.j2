@@ -228,6 +228,7 @@
         <table id="lot-hlms-table">
             <thead>
                 <tr>
+                    <th>ID</th>
                     <th>Addresse</th>
                     <th>Habitations</th>
                     <th>Étages</th>
@@ -246,6 +247,7 @@
             <tbody>
             {% for hlm in unit.hlms %}
                 <tr>
+                    <td>{{hlm.id}}</td>
                     <td>{{hlm.address}}</td>
                     <td>{{hlm.num_dwelling}}</td>
                     <td>{{hlm.num_floors}}</td>

@@ -1,3 +1,12 @@
+
+function showLoading() {
+    document.getElementById('loader').style.display = 'block';
+}
+
+function hideLoading() {
+    document.getElementById('loader').style.display = 'none';
+}
+
 function updateBounds(map) {
     let bounds = map.getBounds();
     document.getElementById("bounds_indicator").innerHTML =
@@ -23,14 +32,65 @@ function boundsAContainB(A, B) {
 
 // https://www.trysmudford.com/blog/linear-interpolation-functions/
 const interpolate = (x, y, a) => {
-    return x * (1 - a) + y * a;}
+    return x * (1 - a) + y * a;
+}
 
+
+/** 
+ * Create a custom SVG element for our cluster markers
+ * They show the cluster name, number of HLMs and number of dwellings
+ * as well as the distribution of disrepair states of hlms within.
+ * 
+ * From https://docs.mapbox.com/mapbox-gl-js/example/cluster-html/ 
+*/
+function createClusterMarkerElement(name, ivpCounts, clusterValue, num_hlms, num_dwellings) {
+    
+    const counts = []
+    const categories = ['A', 'B', 'C', 'D', 'E'];
+    categories.forEach(k => {
+        counts.push(ivpCounts[k] ? ivpCounts[k] : 0)
+    });
+    const total = counts.reduce((a, b) => a + b);   
+    
+    // Adjust the box width based on the name length
+    const boxW = Math.max(name.length * 7 + 20, 125);
+
+    let html = `
+    <svg viewBox="0 0 ${boxW} 67" width="${boxW}" height="67">
+        <rect width="${boxW}" height="67" x="0" y="0" fill="white" style="opacity: .75;" />
+        <text font-size="12" text-fill="black" text-anchor="start" x="5" y='12'>
+            <tspan font-size="13" x='5' dy='0'>${name}</tspan>
+            <tspan x='5' dy='16'>${num_hlms.toLocaleString()} HLMs</tspan>
+            <tspan x='5' dy='16'>${num_dwellings.toLocaleString()} dwellings</tspan>
+        </text>
+    `
+    const width = boxW - 13;
+    let xOffset = 5;
+    for (let i = 0; i < counts.length; i++) {
+        const count = counts[i];
+        const frac = count / total;
+        const subW = Math.ceil(width * frac);
+        html += `
+            <rect width="${subW}" height="12" x="${xOffset}" y="50" fill="${ivpColors[i]}" />
+        `
+        xOffset += subW;
+    }
+    html += `</svg>`;
+
+    const el = document.createElement("div");
+    el.innerHTML = html;
+    return el;
+}
 
 // code for creating an SVG donut chart from feature properties
 // From https://docs.mapbox.com/mapbox-gl-js/example/cluster-html/ 
-function createDonutChart(props, colors) {
+function createPieChart(name, ivpCounts, clusterValue, num_hlms, num_dwellings) {
     const offsets = [];
-    const counts = [props.ivpA, props.ivpB, props.ivpC, props.ivpD, props.ivpE];
+    const counts = []
+    const categories = ['A', 'B', 'C', 'D', 'E'];
+    categories.forEach(k => {
+        counts.push(ivpCounts[k] ? ivpCounts[k] : 0)
+    });
 
     total = 0
     for (const count of counts) {
@@ -38,24 +98,23 @@ function createDonutChart(props, colors) {
         total += count;
     }
 
-    const num_dwellings = props.num_dwellings
     const fontSize = 
-        num_dwellings >= 1000 ? 22 : 
-        num_dwellings >= 100 ? 20 : 
-        num_dwellings >= 10 ? 18 :
-        16;
-    
+        num_dwellings >= 1000 ? 20 : 
+        num_dwellings >= 100 ? 18 : 
+        num_dwellings >= 10 ? 16 :
+        14;
+
+    // Radius of the marker as a function of the number of dwellings in the cluster
     const r = 
-        num_dwellings >= 10_000 ? 60 : 
-        num_dwellings >= 1000 ? interpolate(40, 60, (num_dwellings - 1000) / 9000) : 
-        num_dwellings >= 200 ? interpolate(28, 40, (num_dwellings - 200) / 1000) : 
-        interpolate(18, 28, num_dwellings / 200);
+        num_dwellings >= 10_000 ? 40 : 
+        num_dwellings >= 1000 ? interpolate(35, 40, (num_dwellings - 1000) / 9000) : 
+        num_dwellings >= 200 ? interpolate(23, 35, (num_dwellings - 200) / 1000) : 
+        interpolate(16, 23, num_dwellings / 200);
 
-    // const r = total_hlms >= 1000 ? 80 : total_hlms >= 100 ? interpolate(50, 80, (total_hlms - 100) / 900) : 
-    //     total_hlms >= 40 ? interpolate(32, 50, (total_hlms - 40) / 60) : interpolate(18, 24, total_hlms / 40);
-
-    const r0 = Math.round(r * 0.6);
     const w = r * 2;
+
+    // Increase r0 to show an inner circle in the pie chart - a donut chart if you will
+    const r0 = 0;
 
     let html = `<div>
         <svg width="${w}" height="${w}" viewbox="0 0 ${w} ${w}" 
@@ -63,16 +122,21 @@ function createDonutChart(props, colors) {
 
     for (let i = 0; i < counts.length; i++) {
         html += donutSegment(
-            offsets[i] / num_dwellings,
-            (offsets[i] + counts[i]) / num_dwellings,
+            offsets[i] / num_hlms,
+            (offsets[i] + counts[i]) / num_hlms,
             r,
             r0,
-            colors[i]
+            ivpColors[i]
         );
     }
+
+    const value = clusterValue === 'dwellings' ? num_dwellings : num_hlms;
+    // Format the value to be displayed
+    const displayValue = value > 1000 ? (value / 1000).toFixed(1).toLocaleString() + 'K' : value.toLocaleString()
+
     html += `<circle cx="${r}" cy="${r}" r="${r0}" fill="white" style="opacity: .5;"/>
         <text dominant-baseline="central" transform="translate(${r}, ${r})">
-        ${num_dwellings > 1000 ? (num_dwellings / 1000).toFixed(1).toLocaleString() + 'K' : num_dwellings.toLocaleString()}
+        ${displayValue}
         </text>
         </svg>
     </div>`;
@@ -93,72 +157,8 @@ function donutSegment(start, end, r, r0, color) {
     const largeArc = end - start > 0.5 ? 1 : 0;
 
     // draw an SVG path
-    return `<path d="M ${r + r0 * x0} ${r + r0 * y0} L ${r + r * x0} ${
-        r + r * y0
-    } A ${r} ${r} 0 ${largeArc} 1 ${r + r * x1} ${r + r * y1} L ${
-        r + r0 * x1
-    } ${r + r0 * y1} A ${r0} ${r0} 0 ${largeArc} 0 ${r + r0 * x0} ${
-        r + r0 * y0
-    }" fill="${color}" style="opacity: .85;"/>`;
-}
-
-
-const hlmPointRadiusInterpolate = [
-    "interpolate",
-    ["exponential", 1],
-    ["get", "num_dwellings"],
-    1, 5,
-    50, 7,
-    100, 12,
-    150, 18,
-]
-
-const hlmStyles = {
-    ivpColorSteps: [
-        "step",
-        ["get", "ivp"],
-        "#198754",
-        5.2, "#b1ce3c",
-        10, "#ffd147",
-        15.2, "#E86430",
-        30, "#de2235",
-    ],
-    circleRadius: [
-        "interpolate", ["linear"], ["zoom"],
-        0, ["*", hlmPointRadiusInterpolate, 1 ],
-        5, ["*",
-        [
-            "interpolate",
-            ["exponential", 1],
-            ["get", "num_dwellings"],
-            1, 3,
-            50, 12,
-            100, 15,
-            150, 21,
-        ],
-        1.1,
-    ],
-    10, ["*",
-        [
-            "interpolate",
-            ["exponential", 1],
-            ["get", "num_dwellings"],
-            1, 8,
-            50, 12,
-            150, 18,
-        ],
-        1.4,
-    ],
-    16, ["*", [ "interpolate",
-                ["exponential", 1],
-                ["get", "num_dwellings"],
-                1, 8,
-                50, 15,
-                100, 20,
-                150, 20,
-            ], 1,
-        ],
-    17, 20
-],
-
+    return `<path d="M ${r + r0 * x0} ${r + r0 * y0} L 
+        ${r + r * x0}  ${r + r * y0} A ${r} ${r} 0 ${largeArc} 1 ${r + r * x1} ${r + r * y1} L 
+        ${r + r0 * x1} ${r + r0 * y1} A ${r0} ${r0} 0 ${largeArc} 0 ${r + r0 * x0} ${r + r0 * y0}" 
+        fill="${color}" style="opacity: .85;"/>`;
 }

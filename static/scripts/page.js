@@ -9,6 +9,78 @@ const filterData = {
 var lastLoadedFilter = {};
 
 
+function setUpMRCFilters() {
+    const buttonSection = document.getElementById('mrc-filter-buttons');
+    const iconUp = document.getElementById("mrc-filter-icon-up");
+    const iconDown = document.getElementById("mrc-filter-icon-down");
+
+    document.getElementById('mrc-filter').addEventListener("click", () => {
+        buttonSection.classList.toggle('hidden');
+        iconUp.classList.toggle('hidden');
+        iconDown.classList.toggle('hidden');
+    });
+    document.getElementById('mrc-filter-select-all').addEventListener("click", selectAllClickHandler);
+}
+
+
+function setUpServiceCenterFilters() {
+    const buttonSection = document.getElementById('sc-filter-buttons');
+    const iconUp = document.getElementById("sc-filter-icon-up");
+    const iconDown = document.getElementById("sc-filter-icon-down");
+
+    document.getElementById('sc-filter').addEventListener("click", () => {
+        buttonSection.classList.toggle('hidden');
+        iconUp.classList.toggle('hidden');
+        iconDown.classList.toggle('hidden');
+    });
+    document.getElementById('sc-filter-select-all').addEventListener("click", selectAllClickHandler);
+}
+
+/**
+ * For the select all buttons
+ */
+function selectAllClickHandler(e) {
+    const allButtons = document.getElementById(e.currentTarget.getAttribute('data-target-id'));
+
+    if (!e.currentTarget.hasAttribute('checked')) {
+        // If not checked - we want to select all 
+        // toggle the checked state
+        e.currentTarget.toggleAttribute('checked');
+        // change the text to unselect for next time
+        e.currentTarget.innerText = 'Unselect all';
+
+        // Go through all buttons and check all those that are NOT checked
+        allButtons.querySelectorAll('input').forEach(btn => {
+            if (!btn.checked) {
+                // I don't know why triggering a click was not working consistently
+                // not was just dispatching the change event - I had to manually set
+                // the checked state
+                // btn.toggleAttribute('checked');
+                btn.checked = true;
+                btn.setAttribute('checked', '');
+                btn.dispatchEvent(new Event('change', {bubbles: true}));
+            }
+        });
+    }
+    else {
+        // HERE select all was checked - so we want to UNSELECT all
+
+        // set its state to NOT checked and change the text for next click
+        e.currentTarget.toggleAttribute('checked');
+        e.currentTarget.innerText = 'Select all';
+
+        // go through all buttons and click all those that are checked
+        allButtons.querySelectorAll('input').forEach(btn => {
+            if (btn.checked) {
+                // btn.toggleAttribute('checked');
+                btn.checked = false;
+                btn.removeAttribute('checked');
+                btn.dispatchEvent(new Event('change', {bubbles: true}));
+            }
+        });
+    }
+}
+
 
 
 function setUpDisrepairStateButtons() {
@@ -65,24 +137,19 @@ async function updateData(filterData) {
     lastLoadedFilter = structuredClone(filterData);
 }
 
-function setUpClusterSwitch() {
+/**
+ * 
+ */
+function setUpClusterSettings() {
 
-    document.getElementById('clusterSwitch').addEventListener(
-        'change', async (e) => {
-            const currentRadiusValue = Number.parseInt(
-                document.getElementById('cluster-range-slider').value
-            );
-            if (e.target.checked) {
-                await updateClusters(cluster=true, clusterRadius=currentRadiusValue);
-                document.getElementById('cluster-range-slider').disabled = false;
-            }
-            else {
-                await updateClusters(cluster=false, clusterRadius=currentRadiusValue);
-                document.getElementById('cluster-range-slider').disabled = true;
-            }
+    document.getElementById('cluster-switch').addEventListener('change', loadDataLayers);
 
-        } 
-    )
+    document.querySelectorAll('input[name="cluster-by"]').forEach(el => {
+        el.addEventListener('change', loadDataLayers);
+    })
+    document.querySelectorAll('input[name="cluster-value"]').forEach(el => {
+        el.addEventListener('change', loadDataLayers);
+    })
 
 }
 
@@ -103,24 +170,12 @@ async function updateClusters(cluster=true, radius=60) {
 
     map.getSource('hlms') && map.removeSource('hlms');
     
-    await drawMapLayers(cluster=cluster, clusterRadius=radius) 
+    await loadDataLayers(cluster=cluster, clusterRadius=radius) 
 
 }
 
 function setUpFilter() {
 
-    // document.getElementById('ivp-range-slider')
-    //     .addEventListener('range-changed', (e) => {
-    //         const data = e.detail;
-    //         filterData.ivpRangeMin = data.minRangeValue;
-    //         filterData.ivpRangeMax = data.maxRangeValue;
-    //     });
-
-    document.getElementById('cluster-range-slider')
-        .addEventListener('input', async (e) => {
-            await updateClusters(cluster=true, clusterRadius=Number.parseInt(e.target.value));
-        });
-    
     document.getElementById('dwellings-range-slider')
         .addEventListener('range-changed', async (e) => {
             const data = e.detail;
@@ -145,7 +200,9 @@ function setUpMenuButton() {
 
 document.addEventListener('DOMContentLoaded', () => {
     setUpMenuButton();
-    setUpFilter();
-    setUpClusterSwitch();
+    // setUpFilter();
+    setUpClusterSettings();
     setUpDisrepairStateButtons();
+    setUpMRCFilters();
+    setUpServiceCenterFilters();
 })

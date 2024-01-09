@@ -5,3 +5,4 @@ notes/
 
 __pycache__/
 .env
+output/

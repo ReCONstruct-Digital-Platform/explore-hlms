@@ -3,6 +3,9 @@
 <head>
     <title>Show Lots</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <link href="https://cdn.datatables.net/v/dt/dt-1.13.7/datatables.min.css" rel="stylesheet">
+    <script src="https://cdn.datatables.net/v/dt/dt-1.13.7/datatables.min.js"></script>
     <script src='https://api.mapbox.com/mapbox-gl-js/v3.0.0-beta.1/mapbox-gl.js'></script>
     <link href='https://api.mapbox.com/mapbox-gl-js/v3.0.0-beta.1/mapbox-gl.css' rel='stylesheet' />
     <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
@@ -36,6 +39,10 @@
             width="40" height="40" style="display: none;"></object>
 
         <script>
+        const lastRenderedBounds = {bounds: null};
+        var hoveredLotId = null;
+        var clickedLotId = null;
+
         document.addEventListener("DOMContentLoaded", () => {
 
         mapboxgl.accessToken = "{{ mapbox_token }}";
@@ -51,6 +58,7 @@
         });
 
         document.map = map;
+
 
         // Add the control to the map.
         map.addControl(
@@ -107,7 +115,7 @@
         map.on('click', (e) => {
             
             const coords = JSON.stringify(e.lngLat.wrap());
-            console.debug('clicked on ', coords);
+            console.debug(e.lngLat.lng, e.lngLat.lat);
 
             fetch('/get_lot', {
                 method: 'POST',
@@ -119,7 +127,7 @@
             .then(resp => resp.json())
             .then(data => {
 
-                console.debug(data.features[0].properties.id);
+                console.debug(data.features[0].properties);
 
                 if (map.getLayer('lots_layer')) map.removeLayer('lots_layer');
                 if (map.getLayer('lots_label')) map.removeLayer('lots_label');
@@ -150,7 +158,37 @@
                         "text-allow-overlap": true,
                     },
                 });
+            
 
+                map.on("click", "lots_layer", lotClickHandler);
+                // When the user moves their mouse over the layer, we'll update the
+                map.on("mousemove", "lots_layer", (e) => {
+                    map.getCanvas().style.cursor = 'pointer';
+                    if (e.features.length > 0) {
+                        if (hoveredLotId !== null) {
+                            map.setFeatureState(
+                                { source: "lots", id: hoveredLotId },
+                                { hover: false }
+                            );
+                        }
+                        hoveredLotId = e.features[0].id;
+                        map.setFeatureState(
+                            { source: "lots", id: hoveredLotId },
+                            { hover: true }
+                        );
+                    }
+                });
+        
+                map.on("mouseleave", "lots_layer", () => {
+                    map.getCanvas().style.cursor = '';
+                    if (hoveredLotId !== null) {
+                        map.setFeatureState(
+                            { source: "lots", id: hoveredLotId },
+                            { hover: false }
+                        );
+                    }
+                    hoveredLotId = null;
+                });
                 map.flyTo({
                     center: e.lngLat,
                     zoom: map.getZoom()
@@ -159,6 +197,79 @@
         });
         
         });
+
+        const lotClickHandler = (e) => {
+            // e is of type Mapbox::MapMouseEvent
+            e.originalEvent.stopPropagation();
+
+            // Toggle styles on the lot to shows it's selected
+            if (e.features.length > 0) {
+                if (clickedLotId !== null) {
+                    map.setFeatureState(
+                        { source: "lots", id: clickedLotId },
+                        { clicked: false }
+                    );
+                }
+                clickedLotId = e.features[0].id;
+                map.setFeatureState(
+                    { source: "lots", id: clickedLotId },
+                    { clicked: true }
+                );
+            }
+
+            const evalUnitId = e.features[0].properties.id;
+            triggerHLMOverlay(evalUnitId, e.lngLat);
+        }
+
+        async function triggerHLMOverlay(evalUnitId, centerLngLat) {
+            const overlayElement = document.getElementById('info-overlay');
+            const overlayHTMLContent = await fetch(
+                "/lot_info_no_hlm", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", },
+                    body: JSON.stringify({ id: evalUnitId }),
+                })
+                // Text instead of JSON because we're getting the rendered HTML from the server
+                .then(response => response.text());
+            
+            overlayElement.innerHTML = overlayHTMLContent;
+
+            // Execute all scripts contained within the HTML
+            var scripts = overlayElement.querySelectorAll("script");
+            for (var i = 0; i < scripts.length; i++) {
+                if (scripts[i].innerText) {
+                eval(scripts[i].innerText);
+            }}
+
+            overlayElement.setAttribute('data-visible', true);
+            // Hide the menu if it is currently visible
+            document.getElementById('menu-overlay-button').setAttribute('aria-pressed', false);
+            document.getElementById('menu-overlay').setAttribute('data-visible', false);
+            
+            if (map.getZoom() >= 16.5) return;
+
+            // Quick Maff to position the lot in the middle of screen space
+            // left over after showing the overlay. 
+            // Semi complicated because we have to give an offset from the center.
+            const mapWidth = map._containerWidth;
+            const overlayWidth = overlayElement.offsetWidth;
+            const remainingWidth = mapWidth - overlayWidth
+
+            const isOverlayLargerThanHalfScreen = (0.5 * map._containerWidth) < overlayWidth;
+            const deltaOffset = Math.abs((0.5 * mapWidth) - overlayWidth)
+            
+            const offset = isOverlayLargerThanHalfScreen ?
+                0.5 * (remainingWidth + deltaOffset) :
+                (0.5 * remainingWidth) - deltaOffset;
+
+            map.easeTo({
+                duration: 1000,
+                center: centerLngLat,
+                zoom: map.getZoom() < HLM_OVERLAY_EASE_TO_ZOOM ? HLM_OVERLAY_EASE_TO_ZOOM : map.getZoom(),
+                offset: [-offset, 0] // Offset is negative to move left from center
+            })
+}
+
         </script>
 
     </div>
