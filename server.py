@@ -232,7 +232,7 @@ def get_service_center_polygons():
                     )
                 ) as json
         FROM sc 
-        ORDER BY area DESC;"""
+        ORDER BY name ASC;"""
     cur.execute(select)
     res = cur.fetchall()
 
@@ -266,9 +266,15 @@ def get_mrc_polygons():
                     )
                 )
             )
-        ) FROM 
+        ) 
+        FROM 
         --- This subquery disregards MRCs without any HLMs
-        (select m.id as id, m.name as name, m.geom as geom from mrcs m join hlms h on st_intersects(m.geom, h.point) group by m.id, m.name, m.geom) as sq
+        (
+            SELECT m.id AS id, m.name AS name, m.geom AS geom 
+            FROM mrcs m JOIN hlms h ON ST_Intersects(m.geom, h.point)
+            GROUP BY m.id, m.name, m.geom
+            ORDER BY name ASC
+        ) as sq
         """
     
     cur.execute(select)

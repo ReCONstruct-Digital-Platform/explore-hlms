@@ -40,24 +40,21 @@ function setUpServiceCenterFilters() {
  * For the select all buttons
  */
 function selectAllClickHandler(e) {
-    const allButtons = document.getElementById(e.currentTarget.getAttribute('data-target-id'));
+    const allCheckboxes = document.getElementById(e.currentTarget.getAttribute('data-target-id')).querySelectorAll('input');
+    console.log(e.currentTarget, 'select all clicked')
 
-    if (!e.currentTarget.hasAttribute('checked')) {
+    if (e.currentTarget.toggleAttribute('checked')) {
         // If not checked - we want to select all 
-        // toggle the checked state
-        e.currentTarget.toggleAttribute('checked');
         // change the text to unselect for next time
         e.currentTarget.innerText = 'Unselect all';
 
         // Go through all buttons and check all those that are NOT checked
-        allButtons.querySelectorAll('input').forEach(btn => {
+        allCheckboxes.forEach(btn => {
             if (!btn.checked) {
                 // I don't know why triggering a click was not working consistently
                 // not was just dispatching the change event - I had to manually set
                 // the checked state
-                // btn.toggleAttribute('checked');
                 btn.checked = true;
-                btn.setAttribute('checked', '');
                 btn.dispatchEvent(new Event('change', {bubbles: true}));
             }
         });
@@ -65,16 +62,13 @@ function selectAllClickHandler(e) {
     else {
         // HERE select all was checked - so we want to UNSELECT all
 
-        // set its state to NOT checked and change the text for next click
-        e.currentTarget.toggleAttribute('checked');
+        // change the text for next click
         e.currentTarget.innerText = 'Select all';
 
         // go through all buttons and click all those that are checked
-        allButtons.querySelectorAll('input').forEach(btn => {
+        allCheckboxes.forEach(btn => {
             if (btn.checked) {
-                // btn.toggleAttribute('checked');
                 btn.checked = false;
-                btn.removeAttribute('checked');
                 btn.dispatchEvent(new Event('change', {bubbles: true}));
             }
         });
@@ -142,7 +136,12 @@ async function updateData(filterData) {
  */
 function setUpClusterSettings() {
 
-    document.getElementById('cluster-switch').addEventListener('change', loadDataLayers);
+    document.getElementById('cluster-switch').addEventListener('change', (e) => {
+        const disabled = !e.target.checked;
+        document.querySelectorAll('input[name="cluster-by"]').forEach(el => el.disabled = disabled);
+        document.querySelectorAll('input[name="cluster-value"]').forEach(el => el.disabled = disabled);
+        loadDataLayers(e);
+    });
 
     document.querySelectorAll('input[name="cluster-by"]').forEach(el => {
         el.addEventListener('change', loadDataLayers);
