@@ -29,148 +29,203 @@
         width="40" height="40" style="display: none;"></object>
 
         <div id="menu-overlay" class="overlay" data-visible="true">
-            <div id="menu">
+            <div id="menu" class="pt-[70px] px-3">
                 
                 <div id="menu-clustering" class="text-lg">
-                    <div class="filter-section-header text-2xl">
-                        Regroupement
+
+                    <div id="cluster-settings-header" class="flex items-center border-b-[1px] border-gray-100 mb-2">
+                        <h2 class="text-3xl mr-2 ">
+                            Regroupement
+                        </h2>
+                        <svg id="cluster-settings-icon-up" class="ms-2" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                        </svg>
+                        <svg id="cluster-settings-icon-down" class="ms-2 hidden" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-up" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M7.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 5.707l-5.646 5.647a.5.5 0 0 1-.708-.708l6-6z"></path>
+                        </svg>
                     </div>
 
-                    <div class="flex items-center">
-                        Regrouper les HLMs
-                        <div class="form-check form-switch ms-3">
-                            <input id="cluster-switch" class="form-check-input" type="checkbox" role="switch" checked>
+                    <div id="cluster-settings" class="ps-2">
+                        
+                        <label class="flex items-center cursor-pointer">
+                            <span class="me-2">Regrouper les HLMs</span>
+                            <div class="relative">
+                                <input id="cluster-switch" type="checkbox" value="" class="sr-only peer" checked>
+                                <div class="w-9 h-5 bg-gray-400 rounded-full peer-checked:after:translate-x-full 
+                                    peer-checked:after:border-white peer-checked:bg-blue-600
+                                    after:content-[''] after:absolute after:top-0.5 after:start-[2px] after:bg-white 
+                                    after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+                            </div>
+                        </label>
+                            
+                        <div class="flex flex-col mt-2">
+                            Regrouper par
+                            <div class="ms-4 mt-1 text-base">
+
+                                <div class="flex items-center mb-2">
+                                    <input checked id="radio-cluster-by-mrc" type="radio" value="mrc" name="cluster-by" 
+                                    class="h-4 w-4 peer border-blue-600 text-blue-600 focus:ring-blue-600 focus:ring-2 cursor-pointer
+                                    disabled:text-gray-500 disabled:bg-gray-500 disabled:border-gray-500">
+                                    <label for="radio-cluster-by-mrc" 
+                                        class="block ms-2 cursor-pointer peer-disabled:text-gray-400">
+                                        MRC (Municipalité régionale de comté)
+                                    </label>
+                                </div>
+
+                                <div class="flex items-center mb-2">
+                                    <input id="radio-cluster-by-sc" type="radio" value="sc" name="cluster-by" 
+                                    class="h-4 w-4 peer border-blue-600 text-blue-600 focus:ring-blue-600 focus:ring-2 cursor-pointer
+                                    disabled:text-gray-500 disabled:bg-gray-500 disabled:border-gray-500">
+                                    <label for="radio-cluster-by-sc" 
+                                        class="block ms-2 cursor-pointer peer-disabled:text-gray-400">
+                                        Centre de Service
+                                    </label>
+                                </div>
+                            </div>
                         </div>
+
+                        <div class="flex flex-col mt-2">
+                            Valeurs
+                            <div class="ms-4 mt-1 text-base">
+                                <div class="flex items-center mb-2">
+                                    <input checked id="radio-cluster-value-dwellings" type="radio" value="dwellings" name="cluster-value" 
+                                    class="h-4 w-4 peer border-blue-600 text-blue-600 focus:ring-blue-600 focus:ring-2 cursor-pointer
+                                    disabled:text-gray-500 disabled:bg-gray-500 disabled:border-gray-500">
+                                    <label for="radio-cluster-value-dwellings" 
+                                        class="block ms-2 cursor-pointer peer-disabled:text-gray-400">
+                                        Nombre d'habitations
+                                    </label>
+                                </div>
+                                <div class="flex items-center mb-2">
+                                    <input id="radio-cluster-value-hlms" type="radio" value="hlms" name="cluster-value" 
+                                    class="h-4 w-4 peer border-blue-600 text-blue-600 focus:ring-blue-600 focus:ring-2 cursor-pointer
+                                    disabled:text-gray-500 disabled:bg-gray-500 disabled:border-gray-500">
+                                    <label for="radio-cluster-value-hlms" 
+                                        class="block ms-2 cursor-pointer peer-disabled:text-gray-400">
+                                        Nombre de HLMs
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
 
-                    <div class="flex flex-col mt-2">
-                        Regrouper par
-                        <div class="ms-4 mt-1 text-base">
-                            <div class="flex items-center mb-2">
-                                <input id="radio-cluster-by-mrc" type="radio" value="mrc" name="cluster-by" 
-                                    class="w-4 h-4 focus:ring-2" checked>
-                                <label for="radio-cluster-by-mrc" class="ms-2">
-                                    MRC (Municipalité régionale de comté)
-                                </label>
-                            </div>
-                            <div class="flex items-center mb-2">
-                                <input id="radio-cluster-by-sc" type="radio" value="sc" name="cluster-by" 
-                                class="w-4 h-4 focus:ring-2">
-                                <label for="radio-cluster-by-sc" class="ms-2">
-                                    Centre de Service
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex flex-col mt-2">
-                        Valeurs
-                        <div class="ms-4 mt-1 text-base">
-                            <div class="flex items-center mb-2">
-                                <input id="cradio-cluster-value-dwellings" type="radio" value="dwellings" name="cluster-value" 
-                                    class="w-4 h-4 focus:ring-2" checked>
-                                <label for="cradio-cluster-value-dwellings" class="ms-2">
-                                    Nombre d'habitations
-                                </label>
-                            </div>
-                            <div class="flex items-center mb-2">
-                                <input id="cradio-cluster-value-hlms" type="radio" value="hlms" name="cluster-value" 
-                                class="w-4 h-4 focus:ring-2">
-                                <label for="cradio-cluster-value-hlms" class="ms-2">
-                                    Nombre de HLMs
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- <div class="mt-2">
-                        <div>
-                            <label for="cluster-range-slider">Rayon de Regroupement</label>
-                        </div>
-                        <input type="range" class="form-range" id="cluster-range-slider" 
-                            min="20" max="80" value="60" step="10">
-                        <div class="d-flex justify-content-between">
-                            <p>20</p>
-                            <p>80</p>
-                        </div>
-                    </div> -->
                 </div>
 
-                <div id="menu-filters">
+                <div id="menu-filters" class="text-lg">
 
-                    <h2>Filtres</h2>
+                    <div id="filter-settings-header" class="flex items-center mb-2 border-b-[1px] border-gray-100">
+                        <h2 class="text-3xl mr-2">
+                            Filtres
+                        </h2>
+                        <svg id="filter-settings-icon-up" class="ms-2" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                        </svg>
+                        <svg id="filter-settings-icon-down" class="ms-2 hidden" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-up" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M7.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 5.707l-5.646 5.647a.5.5 0 0 1-.708-.708l6-6z"></path>
+                        </svg>
+                    </div>
 
-                    <div>
-                        <div id="mrc-filter" class="filter-section-header flex items-center justify-between w-full">
-                            <div class="flex items-center">
-                                MRC
-                                <svg id="mrc-filter-icon-up" class="ms-2" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down" viewBox="0 0 16 16">
+                    <div id="filter-settings" class="ps-2">
+                        <div>
+                            <div id="mrc-filter" class="flex items-center justify-between w-full border-b-[1px] border-gray-400 mb-2">
+                                <div class="flex items-center">
+                                    MRC
+                                    <svg id="mrc-filter-icon-up" class="ms-2" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down" viewBox="0 0 16 16">
+                                        <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                                    </svg>
+                                    <svg id="mrc-filter-icon-down" class="ms-2 hidden" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-up" viewBox="0 0 16 16">
+                                        <path fill-rule="evenodd" d="M7.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 5.707l-5.646 5.647a.5.5 0 0 1-.708-.708l6-6z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                            <div id="mrc-filter-buttons" class="flex flex-wrap hidden gap-1 mb-2">
+                                <div class="flex w-full items-end mb-2 gap-6">
+                                    <div class="ps-1">   
+                                        <div class="relative border-b-[1px] border-gray-400">
+                                            <div class="absolute inset-y-0 start-0 flex items-center pointer-events-none">
+                                                <svg class="w-4 h-4 text-gray-400 " aria-hidden="true" fill="none" viewBox="0 0 20 20">
+                                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
+                                                </svg>
+                                            </div>
+                                            <input type="text" id="search-mrc" autocomplete="off"
+                                                class="block py-2 ps-4 px-0 w-full bg-transparent border-0 appearance-none
+                                                focus:outline-none focus:ring-0 focus:text-gray-50 peer" 
+                                                placeholder="Search...">
+                                        </div>
+                                    </div>
+                                    <div id="mrc-filter-select-all" data-target-id="mrc-filter-buttons" data-category="mrc" 
+                                        class="w-fit cursor-pointer text-sm text-blue-200 hover:text-blue-400 pt-1 pb-2 px-1 ms-2 hover:border-blue-200"> 
+                                        Select all
+                                    </div>
+                                </div>
+                                <!-- Place holder for all the MRC filter buttons, created in map.js -->
+                            </div>
+                        </div>
+                        <div>
+                            <div id="sc-filter" class="flex items-center border-b-[1px] border-gray-400 mb-2">
+                                Service Center
+                                <svg id="sc-filter-icon-up" class="ms-2" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down" viewBox="0 0 16 16">
                                     <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
                                 </svg>
-                                <svg id="mrc-filter-icon-down" class="ms-2 hidden" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-up" viewBox="0 0 16 16">
+                                <svg id="sc-filter-icon-down" class="ms-2 hidden" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-up" viewBox="0 0 16 16">
                                     <path fill-rule="evenodd" d="M7.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 5.707l-5.646 5.647a.5.5 0 0 1-.708-.708l6-6z"></path>
                                 </svg>
                             </div>
-                        </div>
-                        <div id="mrc-filter-buttons" class="flex flex-wrap hidden gap-1 mb-2">
-                            <div class="w-full">
-                                <div id="mrc-filter-select-all" data-target-id="mrc-filter-buttons" class="w-fit cursor-pointer text-sm text-blue-200 hover:text-blue-400 pt-1 pb-2 px-1 pe-3 hover:border-blue-200"> 
-                                Select all
+                            <div id="sc-filter-buttons" class="flex flex-wrap hidden gap-1 mb-2">
+                                <div class="flex w-full items-end mb-2 gap-6">
+                                    <div class="ps-1">   
+                                        <div class="relative border-b-[1px] border-gray-400">
+                                            <div class="absolute inset-y-0 start-0 flex items-center pointer-events-none">
+                                                <svg class="w-4 h-4 text-gray-400 " aria-hidden="true" fill="none" viewBox="0 0 20 20">
+                                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
+                                                </svg>
+                                            </div>
+                                            <input type="text" id="search-sc" autocomplete="off"
+                                                class="block py-2 ps-4 px-0 w-full bg-transparent border-0 appearance-none
+                                                focus:outline-none focus:ring-0 focus:text-gray-50 peer" 
+                                                placeholder="Search...">
+                                        </div>
+                                    </div>
+                                    <div id="sc-filter-select-all" data-target-id="sc-filter-buttons" data-category="sc" class="w-fit cursor-pointer text-sm text-blue-200 hover:text-blue-400 pt-1 pb-2 px-1 pe-3 hover:border-blue-200"> 
+                                    Select all
+                                    </div>
                                 </div>
+                                <!-- Place holder for all the Serice Center filter buttons, created in map.js -->
                             </div>
-                            <!-- Place holder for all the MRC filter buttons, created in map.js -->
                         </div>
-                    </div>
-                    <div>
-                        <div id="sc-filter" class="filter-section-header flex items-center">
-                            Service Center
-                            <svg id="sc-filter-icon-up" class="ms-2" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down" viewBox="0 0 16 16">
-                                <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
-                            </svg>
-                            <svg id="sc-filter-icon-down" class="ms-2 hidden" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-up" viewBox="0 0 16 16">
-                                <path fill-rule="evenodd" d="M7.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 5.707l-5.646 5.647a.5.5 0 0 1-.708-.708l6-6z"></path>
-                            </svg>
+
+                        <div class="flex items-center mb-2">
+                            Indice d'État 
+                            <a class="btn info-icon pb-2 ps-2" type="button" target="_blank" 
+                                href="http://www.habitation.gouv.qc.ca/fileadmin/internet/documents/partenaires/guides/guide-immeuble-supplement1-section02.pdf#page=14">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" class="bi bi-info-circle" viewBox="0 0 16 16">
+                                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+                                </svg>
+                            </a>
                         </div>
-                        <div id="sc-filter-buttons" class="flex flex-wrap hidden gap-1 mb-2">
-                            <div class="w-full">
-                                <div id="sc-filter-select-all" data-target-id="sc-filter-buttons" class="w-fit cursor-pointer text-sm text-blue-200 hover:text-blue-400 pt-1 pb-2 px-1 pe-3 hover:border-blue-200"> 
-                                Select all
-                                </div>
-                            </div>
-                            <!-- Place holder for all the Serice Center filter buttons, created in map.js -->
+
+                        <div class="d-inline-flex gap-2 mb-3">
+                            <button id="button-disrepair-A" data-value="A" type="button" class="btn button-disrepair button-disrepair-A active" data-bs-toggle="button" aria-pressed="true">A</button>
+                            <button id="button-disrepair-B" data-value="B" type="button" class="btn button-disrepair button-disrepair-B active" data-bs-toggle="button" aria-pressed="true">B</button>
+                            <button id="button-disrepair-C" data-value="C" type="button" class="btn button-disrepair button-disrepair-C active" data-bs-toggle="button" aria-pressed="true">C</button>
+                            <button id="button-disrepair-D" data-value="D" type="button" class="btn button-disrepair button-disrepair-D active" data-bs-toggle="button" aria-pressed="true">D</button>
+                            <button id="button-disrepair-E" data-value="E" type="button" class="btn button-disrepair button-disrepair-E active" data-bs-toggle="button" aria-pressed="true">E</button>
                         </div>
-                    </div>
 
-                    <div class="filter-section-header d-flex align-items-center">
-                        Indice d'État 
-                        <a class="btn info-icon pb-2 ps-2" type="button" target="_blank" 
-                            href="http://www.habitation.gouv.qc.ca/fileadmin/internet/documents/partenaires/guides/guide-immeuble-supplement1-section02.pdf#page=14">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" class="bi bi-info-circle" viewBox="0 0 16 16">
-                            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                            <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
-                            </svg>
-                        </a>
+                        <div class="mb-2">
+                            Nombre d'Habitations
+                        </div>
+                        <range-selector 
+                            id="dwellings-range-slider"
+                            min-range="{{ dwellings_min }}" 
+                            max-range="{{ dwellings_max }}" 
+                            slider-color="#6b5b95"
+                            number-of-legend-items-to-show="2"
+                            inputs-for-labels>
+                        </range-selector>
                     </div>
-
-                    <div class="d-inline-flex gap-2 mb-3">
-                        <button id="button-disrepair-A" data-value="A" type="button" class="btn button-disrepair button-disrepair-A active" data-bs-toggle="button" aria-pressed="true">A</button>
-                        <button id="button-disrepair-B" data-value="B" type="button" class="btn button-disrepair button-disrepair-B active" data-bs-toggle="button" aria-pressed="true">B</button>
-                        <button id="button-disrepair-C" data-value="C" type="button" class="btn button-disrepair button-disrepair-C active" data-bs-toggle="button" aria-pressed="true">C</button>
-                        <button id="button-disrepair-D" data-value="D" type="button" class="btn button-disrepair button-disrepair-D active" data-bs-toggle="button" aria-pressed="true">D</button>
-                        <button id="button-disrepair-E" data-value="E" type="button" class="btn button-disrepair button-disrepair-E active" data-bs-toggle="button" aria-pressed="true">E</button>
-                    </div>
-
-                    <div class="filter-section-header">
-                        Nombre d'Habitations
-                    </div>
-                    <range-selector 
-                        id="dwellings-range-slider"
-                        min-range="{{ dwellings_min }}" 
-                        max-range="{{ dwellings_max }}" 
-                        slider-color="#6b5b95"
-                        number-of-legend-items-to-show="2"
-                        inputs-for-labels>
-                    </range-selector>
                 </div>
             </div>
         </div>

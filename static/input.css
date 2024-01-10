@@ -237,10 +237,6 @@ table.dataTable>thead {
     font-size: 18px;
 }
 
-.filter-section-header {
-    border-bottom: 1px solid #fff;
-    margin-bottom: 10px;
-}
 
 #menu-overlay {
     position: fixed;
@@ -264,11 +260,6 @@ table.dataTable>thead {
     opacity: 1; 
 }
 
-#menu {
-    margin-top: 75px;
-    padding-left: 20px;
-    padding-right: 20px;
-}
 
 
 /* Cool menu button */

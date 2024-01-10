@@ -4,7 +4,7 @@ import psycopg2
 import psycopg2.extras
 
 from psycopg2 import sql
-from dotenv import dotenv_values, load_dotenv
+from dotenv import load_dotenv
 from flask import Flask, render_template, request
 
 app = Flask(__name__)
@@ -23,6 +23,18 @@ HLM_TABLE = os.getenv('HLM_TABLE')
 LOT_TABLE = os.getenv('LOT_TABLE')
 MAPBOX_TOKEN = os.getenv('MAPBOX_TOKEN')
 app.secret_key = os.getenv('SECRET_KEY')
+
+ALL_SC_IDS = {
+    1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37
+}
+# This is actually all MRCs that contain HLMs
+ALL_MRC_IDS = {
+    5, 21, 23, 24, 27, 40, 41, 46, 53, 54, 55, 56, 57, 58, 60, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 
+    73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 
+    100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 
+    121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 
+    142, 143, 144, 157, 159
+}
 
 
 def _new_conn(dict_cursor=False):
@@ -112,7 +124,7 @@ def get_hlms_by_mrc():
 
 
 
-@app.get('/hlm_clusters_by_mrc')
+@app.route('/hlm_clusters_by_mrc', methods=['GET', 'POST'])
 def get_hlm_clusters_by_mrc():
     """
     Return a single point per MRC 
@@ -120,7 +132,7 @@ def get_hlm_clusters_by_mrc():
     """
     _, cur = _new_conn(dict_cursor=True)
 
-    select = f"""
+    select = sql.SQL(f"""
         SELECT 
         --- Create a unique id for each service center group
         --- See https://stackoverflow.com/questions/53508828/postgres-create-id-for-groups
@@ -134,11 +146,36 @@ def get_hlm_clusters_by_mrc():
             'geometry', ST_Centroid(m.geom)::json
         ) as point 
         FROM mrcs m JOIN hlms h on ST_INTERSECTS(h.point, m.geom)
-        GROUP BY m.id, m.name
-    """
+    """)
+    group_by_clause = sql.SQL("m.id, m.name")
 
-    cur.execute(select)
+    if request.method == 'POST':
+        data = request.json
+        # ivp_range_min = data['filter']['ivpRangeMin']
+        # ivp_range_max = data['filter']['ivpRangeMax']
+        dwellings_min = data['filter']['dwellingsMin']
+        dwellings_max = data['filter']['dwellingsMax']
+        disrepair_categories = data['filter']['disrepairCategories']
+
+        where_clause_parts = []
+        where_clause_parts.append(get_disrepair_category_filter(disrepair_categories))
+        where_clause_parts.append(get_dwellings_filter(dwellings_min, dwellings_max))
+        where_clause = sql.SQL(' AND ').join(where_clause_parts)
+
+        query = sql.SQL("{select} WHERE {where_clause} GROUP BY {group_by_clause}").format(
+            select=select,
+            where_clause=where_clause,
+            group_by_clause=group_by_clause
+        )
+    else:
+        query = sql.SQL("{select} GROUP BY {group_by_clause}").format(
+            select=select,
+            group_by_clause=group_by_clause
+        )
+
+    cur.execute(query)
     res = cur.fetchall()
+
 
     return res
 
@@ -187,7 +224,7 @@ def get_hlms_by_service_center():
     return res
 
 
-@app.get('/hlm_clusters_by_service_center')
+@app.route('/hlm_clusters_by_service_center', methods=['GET', 'POST'])
 def get_hlm_clusters_by_service_center():
     """
     Return a single point per service center
@@ -195,7 +232,7 @@ def get_hlm_clusters_by_service_center():
     """
     _, cur = _new_conn(dict_cursor=True)
 
-    select = f"""
+    select = sql.SQL(f"""
         SELECT 
         s.id,
         s.name,
@@ -210,8 +247,35 @@ def get_hlm_clusters_by_service_center():
             )
         ) as point 
         FROM hlms h JOIN sc s on ST_Intersects(s.geom, h.point)
-        GROUP BY s.id, s.name;"""
-    cur.execute(select)
+    """)
+    group_by_clause = sql.SQL("s.id, s.name")
+    
+    if request.method == 'POST':
+        data = request.json
+        dwellings_min = data['filter']['dwellingsMin']
+        dwellings_max = data['filter']['dwellingsMax']
+        disrepair_categories = data['filter']['disrepairCategories']
+
+        where_clause_parts = []
+        where_clause_parts.append(get_dwellings_filter(dwellings_min, dwellings_max))
+        if disrepair_categories:
+            where_clause_parts.append(get_disrepair_category_filter(disrepair_categories))
+
+        where_clause = sql.SQL(' AND ').join(where_clause_parts)
+        print(where_clause.as_string(_))
+
+        query = sql.SQL("{select} WHERE {where_clause} GROUP BY {group_by_clause}").format(
+            select=select,
+            where_clause=where_clause,
+            group_by_clause=group_by_clause
+        )
+    else:
+        query = sql.SQL("{select} GROUP BY {group_by_clause}").format(
+            select=select,
+            group_by_clause=group_by_clause
+        )
+
+    cur.execute(query)
     res = cur.fetchall()
 
     return res
@@ -293,45 +357,75 @@ def get_hlms():
             json_agg(
                 json_build_object(
                     'type', 'Feature', 
-                    'geometry', ST_AsGeoJSON(point)::json,
+                    'geometry', ST_AsGeoJSON(hlm.point)::json,
                     'properties', json_build_object(
-                        'id', id,
-                        'eval_unit_id', eval_unit_id, 
-                        'organism', organism, 
-                        'service_center', service_center, 
-                        'address', address, 
-                        'muni', muni, 
-                        'num_dwellings', num_dwellings, 
-                        'num_floors', num_floors, 
-                        'area_footprint', area_footprint, 
-                        'area_total', area_total, 
-                        'ivp', ivp, 
-                        'disrepair_state', disrepair_state, 
-                        'category', category
+                        'id', hlm.id,
+                        'eval_unit_id', hlm.eval_unit_id, 
+                        'address', hlm.address, 
+                        'ivp', hlm.ivp,
+                        'num_dwellings', hlm.num_dwellings 
                     )
                 )
             )
-        ) FROM {HLM_TABLE}""")
+        ) FROM {HLM_TABLE} hlm
+
+        """)
     
     if request.method == 'POST':
         data = request.json
-        # ivp_range_min = data['filter']['ivpRangeMin']
-        # ivp_range_max = data['filter']['ivpRangeMax']
         dwellings_min = data['filter']['dwellingsMin']
         dwellings_max = data['filter']['dwellingsMax']
-        disrepair_categories = data['filter']['disrepairCategories'] or 'null'
-
+        disrepair_categories = data['filter']['disrepairCategories']
+        mrc_ids = set(data['filter']['spatialFilter']['mrc'])
+        sc_ids = set(data['filter']['spatialFilter']['sc'])
+        join_clause = None
+        join_clause_parts = []
+        
         where_clause_parts = []
-        where_clause_parts.append(_get_disrepair_category_filter(disrepair_categories))
-        where_clause_parts.append(_get_dwellings_filter(dwellings_min, dwellings_max))
+        where_clause_parts.append(get_dwellings_filter(dwellings_min, dwellings_max))
+
+        if disrepair_categories:
+            where_clause_parts.append(get_disrepair_category_filter(disrepair_categories))
+
+        # Process the spatial filters
+        mrc_and_sc_filter_parts = []
+
+        # If both sets are empty - we should show NO data
+        if not mrc_ids and not sc_ids:
+            where_clause_parts.append(sql.SQL('hlm.id in (null)'))
+
+        # If either set is full - we should not do any spatial filtering
+        elif mrc_ids == ALL_MRC_IDS or sc_ids == ALL_SC_IDS:
+            pass
+
+        else:
+            # One of the sets is not empty, and none is full
+            # We add the spatial joins progressively, based on which 
+            # sets are present as they incur a large cost in query time
+            if mrc_ids:
+                join_clause_parts.append(sql.SQL('JOIN mrcs mrc ON ST_Intersects(mrc.geom, hlm.point)'))
+                mrc_and_sc_filter_parts.append(get_mrc_filter(mrc_ids))
+            if sc_ids:
+                join_clause_parts.append(sql.SQL('JOIN sc ON ST_Intersects(sc.geom, hlm.point)'))
+                mrc_and_sc_filter_parts.append(get_sc_filter(sc_ids))
+
+            if mrc_and_sc_filter_parts:
+                join_clause
+                mrc_and_sc_clause = sql.SQL(' OR ').join(mrc_and_sc_filter_parts)
+                where_clause_parts.append(sql.SQL("({mrc_and_sc_clause})").format(
+                    mrc_and_sc_clause=mrc_and_sc_clause
+                ))
+
+        join_clause = sql.SQL(' ').join(join_clause_parts)
         where_clause = sql.SQL(' AND ').join(where_clause_parts)
 
-        query = sql.SQL("{select} WHERE {where_clause}").format(
+        query = sql.SQL("{select} {join_clause} WHERE {where_clause}").format(
             select=select,
+            join_clause=join_clause,
             where_clause=where_clause
         )
+        print(query.as_string(conn))
         cur.execute(query)
-
     else:
         cur.execute(select)
 
@@ -363,21 +457,22 @@ def getLotAtPosition():
                 )
             )
         )
-        FROM {LOT_TABLE} lots where st_intersects(geom, ST_SetSRID(ST_MakePoint(%s, %s),4326));
+        FROM {LOT_TABLE} lots where ST_Intersects(geom, ST_SetSRID(ST_MakePoint(%s, %s),4326));
     """, (data['lng'], data['lat'],))
 
     res = cur.fetchone()[0]
     return res
 
 
-def _get_disrepair_category_filter(disrepair_categories):
+def get_disrepair_category_filter(disrepair_categories):
     return sql.SQL("disrepair_state IN ({disrepair_categories})").format(
         disrepair_categories=sql.SQL(", ").join(
-            [sql.Literal(c) for c in disrepair_categories] if disrepair_categories else sql.SQL('Null')
-        )
+            [sql.Literal(c) for c in disrepair_categories]
+        ) if disrepair_categories else sql.SQL('null')
     )
 
-def _get_dwellings_filter(dwellings_min, dwellings_max):
+
+def get_dwellings_filter(dwellings_min, dwellings_max):
     return sql.SQL(
         'num_dwellings between {dwellings_min} and {dwellings_max}'
     ).format(
@@ -385,18 +480,31 @@ def _get_dwellings_filter(dwellings_min, dwellings_max):
         dwellings_max=sql.Literal(dwellings_max),
     )
 
+def get_mrc_filter(mrc_ids):
+    return sql.SQL("mrc.id IN ({mrc_ids})").format(
+        mrc_ids=sql.SQL(", ").join(
+            [sql.Literal(c) for c in mrc_ids] 
+        ) if mrc_ids else sql.SQL('null')
+    )
+
+def get_sc_filter(sc_ids):
+    return sql.SQL("sc.id IN ({sc_ids})").format(
+        sc_ids=sql.SQL(", ").join(
+            [sql.Literal(c) for c in sc_ids] 
+        ) if sc_ids else sql.SQL('null')
+    )
+
+
 @app.route('/get_lots', methods=['POST'])
 def get_lots():
     data = request.json
-    _, cur = _new_conn()
+    conn, cur = _new_conn()
 
     minx, miny = data['bounds']['_sw'].values()
     maxx, maxy = data['bounds']['_ne'].values()
-    # ivp_range_min = data['filter']['ivpRangeMin']
-    # ivp_range_max = data['filter']['ivpRangeMax']
     dwellings_min = data['filter']['dwellingsMin']
     dwellings_max = data['filter']['dwellingsMax']
-    disrepair_categories = data['filter']['disrepairCategories'] or 'null'
+    disrepair_categories = data['filter']['disrepairCategories']
 
     select_from = sql.SQL("""
         select json_build_object(
@@ -433,9 +541,11 @@ def get_lots():
                 maxx=sql.Literal(maxx), 
                 maxy=sql.Literal(maxy))
     )
-    where_clause_parts.append(_get_disrepair_category_filter(disrepair_categories))
-    where_clause_parts.append(_get_dwellings_filter(dwellings_min, dwellings_max))
+    where_clause_parts.append(get_disrepair_category_filter(disrepair_categories))
+    where_clause_parts.append(get_dwellings_filter(dwellings_min, dwellings_max))
     where_clause = sql.SQL(' AND ').join(where_clause_parts)
+
+    print(where_clause.as_string(conn))
     
     query = select_from.format(
         evalunit_table=sql.Identifier(EVALUNIT_TABLE),
@@ -449,44 +559,44 @@ def get_lots():
 
 
 
-@app.route('/lot_info_no_hlm', methods=['POST'])
-def lot_info_no_hlm():
-    data = request.json
-    print(data)
-    _, cur = _new_conn()
+# @app.route('/lot_info_no_hlm', methods=['POST'])
+# def lot_info_no_hlm():
+#     data = request.json
+#     print(data)
+#     _, cur = _new_conn()
 
-    eval_unit_id = data['id']
+#     eval_unit_id = data['id']
     
-    cur.execute(f"""
-        select json_build_object(
-            'id', e.id, 
-            'address', e.address,
-            'lot_id', e.lot_id,
-            'muni', e.muni,
-            'num_adr_sup', e.num_adr_sup,
-            'const_yr', e.const_yr, 
-            'const_yr_real', e.const_yr_real, 
-            'phys_link', e.phys_link,   
-            'const_type', e.const_type,
-            'num_dwelling', e.num_dwelling,
-            'max_floor', e.max_floors,
-            'lot_area', e.lot_area,
-            'lot_lin_dim', e.lot_lin_dim,
-            'floor_area', e.floor_area,
-            'lot_value', e.lot_value,
-            'building_value', e.building_value,
-            'value', e.value,
-            'prev_value', e.prev_value,
-            'owner_date', TO_CHAR(e.owner_date, 'dd/mm/yyyy'),
-            'owner_type', e.owner_type,
-            'owner_status', e.owner_status
-        ) 
-        from {EVALUNIT_TABLE} e 
-        where e.id = %s
-        group by e.id, e.address;""", (eval_unit_id,))
-    res = cur.fetchone()[0]
+#     cur.execute(f"""
+#         select json_build_object(
+#             'id', e.id, 
+#             'address', e.address,
+#             'lot_id', e.lot_id,
+#             'muni', e.muni,
+#             'num_adr_sup', e.num_adr_sup,
+#             'const_yr', e.const_yr, 
+#             'const_yr_real', e.const_yr_real, 
+#             'phys_link', e.phys_link,   
+#             'const_type', e.const_type,
+#             'num_dwelling', e.num_dwelling,
+#             'max_floor', e.max_floors,
+#             'lot_area', e.lot_area,
+#             'lot_lin_dim', e.lot_lin_dim,
+#             'floor_area', e.floor_area,
+#             'lot_value', e.lot_value,
+#             'building_value', e.building_value,
+#             'value', e.value,
+#             'prev_value', e.prev_value,
+#             'owner_date', TO_CHAR(e.owner_date, 'dd/mm/yyyy'),
+#             'owner_type', e.owner_type,
+#             'owner_status', e.owner_status
+#         ) 
+#         from {EVALUNIT_TABLE} e 
+#         where e.id = %s
+#         group by e.id, e.address;""", (eval_unit_id,))
+#     res = cur.fetchone()[0]
 
-    return render_template('unit_info.j2', unit=res)
+#     return render_template('unit_info.j2', unit=res)
 
 @app.route('/lot_info', methods=['POST'])
 def lot_info():

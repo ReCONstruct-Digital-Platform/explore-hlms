@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+const plugin = require('tailwindcss/plugin')
+
 module.exports = {
   content: ['**/*.html', '**/*.js', '**/*.py'],
   important: true,
@@ -6,7 +8,7 @@ module.exports = {
     extend: {},
   },
   plugins: [
-    require("@tailwindcss/forms")
+    require('@tailwindcss/forms'),
   ],
 }
 

@@ -1,4 +1,8 @@
 
+Array.prototype.diff = function(arr2) { 
+    return this.filter(x => !arr2.includes(x)); 
+}
+
 // Load server data
 const dataset = document.currentScript.dataset;
 
@@ -14,8 +18,10 @@ const HLM_OVERLAY_EASE_TO_ZOOM = 16.5;
 
 const currentlyLoadedLotIds = new Set();
 
-const SCsDisplayed = [];
-const MRCsDisplayed = [];
+const polygonsDisplayed = {
+    'mrc': [],
+    'sc': []
+}
 
 const clusterSources = {
     'mrc': [],
@@ -32,8 +38,11 @@ const clusterMarkers = {
     'sc': {},
 };
 
+const allMRCs = [];
+const allSCs = [];
+
 // filters for classifying HLMs into IVP categories
-const ivpA = ['<=', ['get', 'ivp'], 5.1];
+const ivpA = ['<', ['get', 'ivp'], 5.1];
 const ivpB = ['all', ['>', ['get', 'ivp'], 5.1], ['<=', ['get', 'ivp'], 10]];
 const ivpC = ['all', ['>', ['get', 'ivp'], 10], ['<=', ['get', 'ivp'], 15.1]];
 const ivpD = ['all', ['>', ['get', 'ivp'], 15.1], ['<=', ['get', 'ivp'], 30]];
@@ -60,8 +69,8 @@ async function loadBaseLayers() {
         data: sc
     });
 
-    createFilterButtons('mrc-filter-buttons', mrcs.features, ['mrc_polygons', 'mrc_outlines', 'mrc_labels'], MRCsDisplayed, 'mrc');
-    createFilterButtons('sc-filter-buttons', sc.features, ['sc_polygons', 'sc_labels', 'sc_outlines'], SCsDisplayed, 'sc');
+    createFilterButtons('mrc-filter-buttons', mrcs.features, 'mrc');
+    createFilterButtons('sc-filter-buttons', sc.features, 'sc');
     
     // MRC outline is currently always visible
     map.addLayer({
@@ -160,17 +169,22 @@ async function loadBaseLayers() {
 /**
  * Populate the filter button sections with a button for each of `featuresToFilter`.
  */
-function createFilterButtons(filterButtonElementId, featuresToFilter, layersToFilter, displayList, type) {
+function createFilterButtons(filterButtonElementId, featuresToFilter, type) {
     const filterButtons = document.getElementById(filterButtonElementId);
+
+    const layersToFilter = [`${type}_polygons`, `${type}_outlines`, `${type}_labels`];
 
     for (const feature of featuresToFilter) {
 
         const {id, name} = feature.properties;
-        
+
+        // Initialize MRC filter with all IDs
+        type === 'mrc' && filterData.spatialFilter[type].push(id);
+
         // Generate a filter button for the SC
         const button = document.createElement('div');
         button.innerHTML+= `
-        <input id="${name}_checkbox" type="checkbox" value="${id}" class="peer hidden">
+        <input id="${name}_checkbox" type="checkbox" value=${id} class="peer hidden">
         <label for="${name}_checkbox" class="select-none cursor-pointer rounded-lg border-2 border-gray-200
         py-2 px-3 text-sm text-gray-200 transition-colors duration-200 ease-in-out 
         peer-checked:bg-blue-500 peer-checked:text-gray-50 peer-checked:border-blue-500
@@ -178,16 +192,20 @@ function createFilterButtons(filterButtonElementId, featuresToFilter, layersToFi
         ${name}</label>`
         filterButtons.appendChild(button);
 
+        
         // The buttons are used to toggle the visibility of the marker and polygon layers
         // Thanks to closures each function has access to its marker element. 
         document.getElementById(`${name}_checkbox`).addEventListener('change', e => {
 
+            // Get the current values of all the following
             // if we're clustering and clustering by the filter type,
             // we should show/hide the cluster marker as well
             const cluster = document.getElementById('cluster-switch').checked;
             const clusterBy = document.querySelector('input[name="cluster-by"]:checked').value;
+            const reloadHLMs = (!cluster)
+            const displayList = polygonsDisplayed[type];
             const toggleClusterMarker = (cluster && clusterBy === type && id in clusterMarkers[type]);
-
+            
             if (e.currentTarget.checked) {
                 displayList.push(id);
                 if (toggleClusterMarker) clusterMarkers[type][id]._element.style.visibility = 'visible';
@@ -196,13 +214,28 @@ function createFilterButtons(filterButtonElementId, featuresToFilter, layersToFi
                 const i = displayList.indexOf(id);
                 if (i > -1) {
                     displayList.splice(i, 1);
-                    if (toggleClusterMarker) clusterMarkers[type][id]._element.style.visibility = 'hidden';
                 }
+                if (toggleClusterMarker) clusterMarkers[type][id]._element.style.visibility = 'hidden';
             }
             
+
+            filtersChanged = true;
+            filterData.spatialFilter[type] = displayList;
+
+            // Only if we're not clustering
+            if (reloadHLMs) {
+                console.debug('reloading HLMs')
+                loadDataLayers(e);
+            } 
+            
+            // Update the layer filter to show/hide polygons
             if (displayList.length > 0) {
                 // Filter using the updated service center filter
-                layersToFilter.forEach(l => map.setFilter(l, ['in', 'id', ...displayList]));
+                layersToFilter.forEach(l => 
+                    {   
+                        console.log(`filtering ${l} `)
+                        map.setFilter(l, ['in', 'id', ...displayList])
+                    });
             }
             else {
                 layersToFilter.forEach(l => map.setFilter(l, ['in', 'id', '']));
@@ -210,6 +243,7 @@ function createFilterButtons(filterButtonElementId, featuresToFilter, layersToFi
         })
     }
 }
+
 
 
 
@@ -237,7 +271,7 @@ function resetAll() {
     
     if (clusterBy === 'mrc') {
         // Resetting any SCs selected 
-        SCsDisplayed.length = 0;
+        polygonsDisplayed['sc'].length = 0;
         // Unselect all SCs and select all MRCs
         if (!selectAllMRCs.hasAttribute('checked')) {
             console.debug('selectall mrcs NOT checked, clicking to select all')
@@ -261,7 +295,7 @@ function resetAll() {
 
     }
     else {
-        MRCsDisplayed.length = 0;
+        polygonsDisplayed['mrc'].length = 0;
             
         // Unselect all MRCs and select all SCs
         if (selectAllMRCs.hasAttribute('checked')) {
@@ -289,13 +323,24 @@ function resetAll() {
 
 
 
-function clusterHLMsByMRC(hlmsByMRC, clusterValue) {
+async function clusterHLMsByMRC(clusterValue) {
 
     resetAll();
 
-    // Get filter values ????
+    if (filtersChanged || !('hlm_clusters_by_mrc' in dataLoaded)) 
+    {
+        dataLoaded['hlm_clusters_by_mrc'] = await fetch("/hlm_clusters_by_mrc", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                filter: filterData
+            })
+        }).then(resp => resp.json());
+        // Reset 
+        filtersChanged = false;
+    }
 
-    for (const mrc_data of hlmsByMRC) {
+    for (const mrc_data of dataLoaded['hlm_clusters_by_mrc']) {
         // The unpacked variable names must match the field names returned by server
         const {id, name, point, disrepair_states, num_hlms, num_dwellings} = mrc_data;
 
@@ -330,16 +375,24 @@ function clusterHLMsByMRC(hlmsByMRC, clusterValue) {
 
 
 
-function clusterHLMsByServiceCenter(hlmsByServiceCenter, clusterValue) {
+async function clusterHLMsByServiceCenter(clusterValue) {
 
     resetAll()
-    if (!('sc' in clusterMarkers)) {
-        clusterMarkers['sc'] = {}
-    };
 
     // Get current filter values before creating the sources
+    if (filtersChanged || !('hlm_clusters_by_sc' in dataLoaded)) {
+        dataLoaded['hlm_clusters_by_sc'] = await fetch("/hlm_clusters_by_service_center", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                filter: filterData
+            })
+        }).then(resp => resp.json());
+        // Reset 
+        filtersChanged = false;
+    }
 
-    for (const sc_data of hlmsByServiceCenter) {
+    for (const sc_data of dataLoaded['hlm_clusters_by_sc']) {
         // The unpacked variable names must match the field names returned by server
         const {id, name, point, disrepair_states, num_hlms, num_dwellings} = sc_data;
 
@@ -378,6 +431,8 @@ function clusterHLMsByServiceCenter(hlmsByServiceCenter, clusterValue) {
  */
 async function loadDataLayers() {
 
+    showLoading();
+
     // Get the current clustering and filter settings
     const cluster = document.getElementById('cluster-switch').checked;
     const clusterBy = document.querySelector('input[name="cluster-by"]:checked').value;
@@ -390,16 +445,10 @@ async function loadDataLayers() {
         )
         
         if (clusterBy === 'mrc') {
-            if (filtersChanged || !('hlm_clusters_by_mrc' in dataLoaded)) {
-                dataLoaded['hlm_clusters_by_mrc'] = await fetch("/hlm_clusters_by_mrc").then(resp => resp.json());
-            }
-            clusterHLMsByMRC(dataLoaded['hlm_clusters_by_mrc'], clusterValue)
+            clusterHLMsByMRC(clusterValue)
         }
         else if (clusterBy === 'sc') {
-            if (filtersChanged || !('hlm_clusters_by_sc' in dataLoaded)) {
-                dataLoaded['hlm_clusters_by_sc'] = await fetch("/hlm_clusters_by_service_center").then(resp => resp.json());
-            }
-            clusterHLMsByServiceCenter(dataLoaded['hlm_clusters_by_sc'], clusterValue);
+            clusterHLMsByServiceCenter(clusterValue);
         }
         else {
             throw new Error('Invalid cluster by value');
@@ -408,7 +457,7 @@ async function loadDataLayers() {
     else {
         // Reset all existing cluster markers
         Object.values(clusterMarkers).forEach(cm => Object.values(cm).forEach(m => m.remove()));
-        // Remove all sources
+        // Remove all cluster sources
         Object.values(clusterSources).forEach(cs => {
             Object.values(cs).forEach(s => {
                 map.getSource(s) && map.removeSource(s);
@@ -416,25 +465,30 @@ async function loadDataLayers() {
             cs.length = 0;
         });
 
-        if (!('hlms' in dataLoaded) || filtersChanged) {
 
-            ['hlm_point', 'hlm_point_labels', 'hlm_addresses_labels'].forEach(
-                (layer) => {
-                    map.getLayer(layer) && map.removeLayer(layer);
-                }
-            )
-            map.getSource('hlms') && map.removeSource('hlms');
+        ['hlm_point', 'hlm_point_labels', 'hlm_addresses_labels'].forEach(
+            (layer) => {
+                map.getLayer(layer) && map.removeLayer(layer);
+            }
+        )
 
-            // Get the HLMs from the server
-            dataLoaded['hlms'] = await fetch("/get_hlms", {
-                method: 'POST',
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({filter: filterData})
-            }).then(resp => resp.json());
-            
+        console.log(filterData.spatialFilter)
+        
+        // Get the HLMs from the server
+        dataLoaded['hlms'] = await fetch("/get_hlms", {
+            method: 'POST',
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({filter: filterData})
+        }).then(resp => resp.json());
+        
+        if (map.getSource('hlms')) {
+            map.getSource('hlms').setData(dataLoaded['hlms']);
+        }
+        else {
             map.addSource("hlms", {
                 type: "geojson",
-                data: dataLoaded['hlms']
+                data: dataLoaded['hlms'],
+                cluster: false,
             });
         }
 
@@ -444,7 +498,6 @@ async function loadDataLayers() {
             id: "hlm_point",
             type: "circle",
             source: "hlms",
-            filter: ["!=", "cluster", true],
             layout: {
                 'visibility': 'visible',
             },
@@ -474,7 +527,6 @@ async function loadDataLayers() {
             id: "hlm_point_labels",
             type: "symbol",
             source: "hlms",
-            filter: ["!=", "cluster", true],
             layout: {
                 "text-field": ["get", "num_dwellings"],
                 "text-allow-overlap": false,
@@ -487,7 +539,6 @@ async function loadDataLayers() {
             id: "hlm_addresses_labels",
             type: "symbol",
             source: "hlms",
-            filter: ["!=", "cluster", true],
             layout: {
                 "text-field": ["concat", ["get", "address"], " (", ["get", "num_dwellings"], ")"],
                 "text-allow-overlap": false,
@@ -495,41 +546,21 @@ async function loadDataLayers() {
             },
             minzoom: HLM_OVERLAY_EASE_TO_ZOOM
         });
-
-    }
-
-    // // Reset markes on Screen if it exists
-    // if (markers || markersOnScreen) {
-    //     resetClusterMarkers();
-    // }
-    // // after the GeoJSON data is loaded, update markers on the screen on every frame
-    // map.on("render", mapRenderListener);
-
-
-    return
-
-
-    
-    // Reset markes on Screen if it exists
-    if (markersMRC || markersOnScreen) {
-        resetClusterMarkers();
-    }
-
         
-    // after the GeoJSON data is loaded, update markers on the screen on every frame
-    map.on("render", mapRenderListener);
-    
-    // When a click event occurs on a feature in
-    map.on("click", "hlm_point", hlmPointClickHandler);
-    
-    map.on("mouseenter", "hlm_point", () => {
-        map.getCanvas().style.cursor = "pointer";
-    });
-    map.on("mouseleave", "hlm_point", () => {
-        map.getCanvas().style.cursor = "";
-    });
+        // When a click event occurs on a feature in
+        map.on("click", "hlm_point", hlmPointClickHandler);
+        
+        map.on("mouseenter", "hlm_point", () => {
+            map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", "hlm_point", () => {
+            map.getCanvas().style.cursor = "";
+        });
+    }
 
     renderLots(map, lastRenderedBounds);
+
+    hideLoading();
 }
 
 
@@ -600,12 +631,10 @@ document.addEventListener("DOMContentLoaded", () => {
             map.removeLayer('natural-line-label');
             map.removeLayer('natural-point-label');
         }
-        showLoading();
         // Load layers that we'll always need
         await loadBaseLayers();
         // Load data depending on current clustering and filter settings
         await loadDataLayers();
-        hideLoading();
     });
     
 
@@ -631,6 +660,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 async function triggerHLMOverlay(evalUnitId, centerLngLat) {
     const overlayElement = document.getElementById('info-overlay');
+    // Get the overlay from the server as HTML
     const overlayHTMLContent = await fetch(
         dataset.fetchLotInfoUrl, {
             method: "POST",
