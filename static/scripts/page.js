@@ -41,7 +41,7 @@ function setUpServiceCenterFilters() {
  */
 function selectAllClickHandler(e) {
     const allCheckboxes = document.getElementById(e.currentTarget.getAttribute('data-target-id')).querySelectorAll('input');
-    console.log(e.currentTarget, 'select all clicked')
+    console.log('select all clicked', e.currentTarget.id )
 
     if (e.currentTarget.toggleAttribute('checked')) {
         // If not checked - we want to select all 

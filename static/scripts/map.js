@@ -60,7 +60,7 @@ async function loadBaseLayers() {
         data: sc
     });
 
-    createFilterButtons('mrc-filter-buttons', mrcs.features, ['mrc_polygons', 'mrc_labels'], MRCsDisplayed, 'mrc');
+    createFilterButtons('mrc-filter-buttons', mrcs.features, ['mrc_polygons', 'mrc_outlines', 'mrc_labels'], MRCsDisplayed, 'mrc');
     createFilterButtons('sc-filter-buttons', sc.features, ['sc_polygons', 'sc_labels', 'sc_outlines'], SCsDisplayed, 'sc');
     
     // MRC outline is currently always visible
@@ -231,6 +231,9 @@ function resetAll() {
     // Unselect all MRCs and select all SCs
     const selectAllMRCs = document.getElementById('mrc-filter-select-all');
     const selectAllSCs = document.getElementById('sc-filter-select-all');
+    const filterButtonsMRCs = document.getElementById(selectAllMRCs.getAttribute('data-target-id'));
+    const filterButtonsSCs = document.getElementById(selectAllSCs.getAttribute('data-target-id'));
+
     
     if (clusterBy === 'mrc') {
         // Resetting any SCs selected 
@@ -244,10 +247,22 @@ function resetAll() {
             console.debug('selectall scs checked, clicking to UNselect all')
             selectAllSCs.click()
         }
+        // After checking the 'select all' buttons above, go through each button
+        // and check/uncheck any leftover buttons
+        filterButtonsMRCs.querySelectorAll('input:not(:checked)').forEach(input => {
+            console.debug(input)
+            input.checked = false;
+            input.dispatchEvent(new Event('change', {bubbles: true}));
+        })
+        filterButtonsSCs.querySelectorAll('input:checked').forEach(input => {
+            input.checked = false;
+            input.dispatchEvent(new Event('change', {bubbles: true}));
+        })
+
     }
     else {
         MRCsDisplayed.length = 0;
-    
+            
         // Unselect all MRCs and select all SCs
         if (selectAllMRCs.hasAttribute('checked')) {
             console.debug('selectall mrcs checked, clicking to UNselect all')
@@ -258,7 +273,18 @@ function resetAll() {
             console.debug('selectall SCs NOT checked, clicking to select all')
             selectAllSCs.click()
         }
-    }
+        
+        // After checking the 'select all' buttons above, go through each button
+        // and check/uncheck any leftover buttons
+        filterButtonsMRCs.querySelectorAll('input:checked').forEach(input => {
+            input.checked = false;
+            input.dispatchEvent(new Event('change', {bubbles: true}));
+        })
+        filterButtonsSCs.querySelectorAll('input:not(:checked)').forEach(input => {
+            input.checked = false;
+            input.dispatchEvent(new Event('change', {bubbles: true}));
+        })
+    }        
 }
 
 
@@ -268,7 +294,6 @@ function clusterHLMsByMRC(hlmsByMRC, clusterValue) {
     resetAll();
 
     // Get filter values ????
-
 
     for (const mrc_data of hlmsByMRC) {
         // The unpacked variable names must match the field names returned by server
@@ -359,22 +384,19 @@ async function loadDataLayers() {
     const clusterValue = document.querySelector('input[name="cluster-value"]:checked').value;
 
     if (cluster) {
-        // Remove the individual HLM layers if visible
+        // Remove the individual HLM layers
         ['hlm_point', 'hlm_point_labels', 'hlm_addresses_labels'].forEach(
-            (layer) => {
-                map.getLayer(layer) && map.removeLayer(layer);
-            }
+            (layer) => map.getLayer(layer) && map.removeLayer(layer)
         )
         
         if (clusterBy === 'mrc') {
-            // Load data only once
-            if (!('hlm_clusters_by_mrc' in dataLoaded) || filtersChanged) {
+            if (filtersChanged || !('hlm_clusters_by_mrc' in dataLoaded)) {
                 dataLoaded['hlm_clusters_by_mrc'] = await fetch("/hlm_clusters_by_mrc").then(resp => resp.json());
             }
             clusterHLMsByMRC(dataLoaded['hlm_clusters_by_mrc'], clusterValue)
         }
         else if (clusterBy === 'sc') {
-            if (!('hlm_clusters_by_sc' in dataLoaded) || filtersChanged) {
+            if (filtersChanged || !('hlm_clusters_by_sc' in dataLoaded)) {
                 dataLoaded['hlm_clusters_by_sc'] = await fetch("/hlm_clusters_by_service_center").then(resp => resp.json());
             }
             clusterHLMsByServiceCenter(dataLoaded['hlm_clusters_by_sc'], clusterValue);
