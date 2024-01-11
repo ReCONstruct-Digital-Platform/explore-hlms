@@ -70,7 +70,7 @@ function selectAllClickHandler(e) {
     
     if (selectingAll) {
         e.currentTarget.innerText = 'Unselect all';
-        const uncheckedFilters = filterButtonContainer.querySelectorAll('input:not(:checked)');
+        const uncheckedFilters = filterButtonContainer.querySelectorAll('input[type="checkbox"]:not(:checked)');
         // Go through all filters and check all those that are NOT checked
         // We'll collect the polygon ids and perform a single filter update at the end
         uncheckedFilters.forEach(btn => {
@@ -87,7 +87,7 @@ function selectAllClickHandler(e) {
     else {
         // HERE select all was checked - so we want to UNSELECT all
         e.currentTarget.innerText = 'Select all';
-        const checkedFilters = filterButtonContainer.querySelectorAll('input:checked');
+        const checkedFilters = filterButtonContainer.querySelectorAll('input[type="checkbox"]:checked');
         // go through all buttons and click all those that are checked
         checkedFilters.forEach(btn => {
             const id = parseInt(btn.value);
@@ -127,25 +127,20 @@ function selectAllClickHandler(e) {
 function setUpDisrepairStateButtons() {
 
     function getActiveDisrepairCategories() {
-        const activeButtons = document.querySelectorAll('.button-disrepair.active');
         const activeDisrepairCategories = []
-        for (const btn of activeButtons) {
-            activeDisrepairCategories.push(btn.getAttribute('data-value'));
-        }
-        // console.debug(activeDisrepairCategories);
+        const activeButtons = document.getElementById('disrepair-buttons').querySelectorAll('input:checked');
+        activeButtons.forEach(b => activeDisrepairCategories.push(b.value))
         return activeDisrepairCategories;
     }
 
-    const ivpButtons = document.querySelectorAll('.button-disrepair');
-    for (const btn of ivpButtons) {
-        btn.addEventListener('click', async (e) => {
-            const disrepairCategories = getActiveDisrepairCategories();
-            filterData.disrepairCategories = disrepairCategories;
+    const buttons = document.getElementById('disrepair-buttons').querySelectorAll('input');
+    buttons.forEach(btn => {
+        btn.addEventListener('change', e => {
+            filterData.disrepairCategories = getActiveDisrepairCategories();
             filtersChanged = true;
             loadDataLayers(e);
-            // await updateData(filterData);
         })
-    }
+    })
 
 }
 
@@ -180,11 +175,24 @@ function setUpClusterSettings() {
         const disabled = !e.target.checked;
         document.querySelectorAll('input[name="cluster-by"]').forEach(el => el.disabled = disabled);
         document.querySelectorAll('input[name="cluster-value"]').forEach(el => el.disabled = disabled);
+        document.querySelectorAll('input[name="cluster-marker-type"]').forEach(el => el.disabled = disabled);
         loadDataLayers(e);
     });
 
     document.querySelectorAll('input[name="cluster-by"]').forEach(el => {
         el.addEventListener('change', loadDataLayers);
+    })
+    // When the marker type changes, disable the value for the box type (as both are shown)
+    document.querySelectorAll('input[name="cluster-marker-type"]').forEach(el => {
+        el.addEventListener('change', e => {
+            if (e.target.id === 'cluster-marker-type-box' && e.target.checked) {
+                document.querySelectorAll('input[name="cluster-value"]').forEach(el => el.disabled = true);
+            }
+            else if (e.target.id === 'cluster-marker-type-pie' && e.target.checked) {
+                document.querySelectorAll('input[name="cluster-value"]').forEach(el => el.disabled = false);
+            }
+            loadDataLayers(e);
+        });
     })
     document.querySelectorAll('input[name="cluster-value"]').forEach(el => {
         el.addEventListener('change', loadDataLayers);
@@ -223,8 +231,6 @@ function setUpFilter() {
             filterData.dwellingsMax = data.maxRangeValue;
             filtersChanged = true;
             loadDataLayers(e);
-            // dwellingsFilterChanged = true;
-            // await updateData(filterData);
         });
 }
 

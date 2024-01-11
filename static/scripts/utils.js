@@ -43,101 +43,139 @@ const interpolate = (x, y, a) => {
  * 
  * From https://docs.mapbox.com/mapbox-gl-js/example/cluster-html/ 
 */
-function createClusterMarkerElement(name, ivpCounts, clusterValue, num_hlms, num_dwellings) {
+function createClusterBoxElement(name, ivps, clusterValue) {
     
-    const counts = []
-    const categories = ['A', 'B', 'C', 'D', 'E'];
-    categories.forEach(k => {
-        counts.push(ivpCounts[k] ? ivpCounts[k] : 0)
-    });
-    const total = counts.reduce((a, b) => a + b);   
+    const ivpCounts = {
+        'A': 0,
+        'B': 0,
+        'C': 0,
+        'D': 0,
+        'E': 0,
+    };
+    
+    ivps.forEach(entry => {
+        const {dwel: dwellings, s: ivpCategory} = entry;
+        // If we're counting hlms, add 1 for each entry
+        // else add the number of dwellings to the category total
+        clusterValue === 'hlms' ? ivpCounts[ivpCategory] += 1
+            : ivpCounts[ivpCategory] += dwellings;
+    })
+    const counts = Object.values(ivpCounts);
+    const total = counts.reduce((a,b) => a + b);
     
     // Adjust the box width based on the name length
-    const boxW = Math.max(name.length * 7 + 20, 125);
-
+    const boxWidth = Math.max(name.length * 7 + 25, 125);
+    const boxHeight = 50;
+    
     let html = `
-    <svg viewBox="0 0 ${boxW} 67" width="${boxW}" height="67">
-        <rect width="${boxW}" height="67" x="0" y="0" fill="white" style="opacity: .75;" />
-        <text font-size="12" text-fill="black" text-anchor="start" x="5" y='12'>
-            <tspan font-size="13" x='5' dy='0'>${name}</tspan>
-            <tspan x='5' dy='16'>${num_hlms.toLocaleString()} HLMs</tspan>
-            <tspan x='5' dy='16'>${num_dwellings.toLocaleString()} dwellings</tspan>
-        </text>
-    `
-    const width = boxW - 13;
+    <svg viewBox="0 0 ${boxWidth} ${boxHeight}" width="${boxWidth}" height="${boxHeight}">
+    <rect width="${boxWidth}" height="${boxHeight}" x="0" y="0" fill="white" style="opacity: .75;" />
+    <text font-size="15" text-fill="black" text-anchor="start" x="5" y='14'>${name}</text>
+    <text font-size="14" text-fill="black" text-anchor="start" x='5' y='30'>${total.toLocaleString()}`
+
+    html += (clusterValue === 'hlms') ? ` HLMs</text>` : ` habitations </text>`;
+    
     let xOffset = 5;
-    for (let i = 0; i < counts.length; i++) {
-        const count = counts[i];
+    const barWidth = boxWidth - 13;
+
+    counts.forEach((count, i) => {
         const frac = count / total;
-        const subW = Math.ceil(width * frac);
-        html += `
-            <rect width="${subW}" height="12" x="${xOffset}" y="50" fill="${ivpColors[i]}" />
-        `
+        const subW = Math.ceil(barWidth * frac);
+        html += `<rect width="${subW}" height="12" x="${xOffset}" y="34" fill="${ivpColors[i]}" />`
         xOffset += subW;
-    }
-    html += `</svg>`;
+    });
+
+    html += `</text></svg>`;
 
     const el = document.createElement("div");
     el.innerHTML = html;
     return el;
 }
 
-// code for creating an SVG donut chart from feature properties
-// From https://docs.mapbox.com/mapbox-gl-js/example/cluster-html/ 
-function createPieChart(name, ivpCounts, clusterValue, num_hlms, num_dwellings) {
-    const offsets = [];
-    const counts = []
-    const categories = ['A', 'B', 'C', 'D', 'E'];
-    categories.forEach(k => {
-        counts.push(ivpCounts[k] ? ivpCounts[k] : 0)
-    });
 
+/**
+ * Creating an SVG pie chart for the cluster
+ * From https://docs.mapbox.com/mapbox-gl-js/example/cluster-html/ 
+ */ 
+function createPieChart(name, ivps, clusterValue) {
+    const ivpCounts = {
+        'A': 0,
+        'B': 0,
+        'C': 0,
+        'D': 0,
+        'E': 0,
+    };
+    
+    ivps.forEach(entry => {
+        const {dwel: dwellings, s: ivpCategory} = entry;
+        // If we're counting hlms, add 1 for each entry
+        // else add the number of dwellings to the category total
+        clusterValue === 'hlms' ? ivpCounts[ivpCategory] += 1
+            : ivpCounts[ivpCategory] += dwellings;
+    })
+    const counts = Object.values(ivpCounts);
+    
+    
+    // Push a rolling total to offsets to draw the pie chart
+    const offsets = [];
     total = 0
     for (const count of counts) {
         offsets.push(total);
         total += count;
     }
+    const value = total;
+    const fontSize = 16;
 
-    const fontSize = 
-        num_dwellings >= 1000 ? 20 : 
-        num_dwellings >= 100 ? 18 : 
-        num_dwellings >= 10 ? 16 :
-        14;
+    // Adjust the box width based on the name length
+    const boxWidth = Math.max(name.length * 7 + 20, 125);
 
-    // Radius of the marker as a function of the number of dwellings in the cluster
-    const r = 
-        num_dwellings >= 10_000 ? 40 : 
-        num_dwellings >= 1000 ? interpolate(35, 40, (num_dwellings - 1000) / 9000) : 
-        num_dwellings >= 200 ? interpolate(23, 35, (num_dwellings - 200) / 1000) : 
-        interpolate(16, 23, num_dwellings / 200);
+    // Radius of the marker scales based on the value
+    var r;
+    if (clusterValue === 'dwellings') {
+        r = value >= 10_000 ? 40
+            : value >= 1000 ? interpolate(35, 40, (value - 1000) / 9000)
+            : value >= 200 ? interpolate(23, 35, (value - 200) / 1000) 
+            : interpolate(16, 23, value / 200);
+    }
+    else {
+        r = value >= 300 ? 40
+            : value >= 100 ? interpolate(35, 40, (value - 100) / 300)
+            : value >= 50 ? interpolate(23, 35, (value - 50) / 100) 
+            : interpolate(16, 23, value / 20);
+    }
 
-    const w = r * 2;
+    const boxHeight = r * 2 + 25;
 
     // Increase r0 to show an inner circle in the pie chart - a donut chart if you will
     const r0 = 0;
 
     let html = `<div>
-        <svg width="${w}" height="${w}" viewbox="0 0 ${w} ${w}" 
-            text-anchor="middle" style="font: ${fontSize}px sans-serif; display: block";>`;
+        <svg width="${boxWidth}" height="${boxHeight}" viewbox="0 0 ${boxWidth} ${boxHeight}" 
+            text-anchor="middle" style="font: ${fontSize}px sans-serif; display: block";>
+            <text font-size="14" text-fill="black" text-anchor="middle" x="50%" y='12'>
+                <tspan>${name}</tspan>
+            </text>
+            <g transform="translate(${boxWidth / 2 - r}, 20)">
+        `;
 
     for (let i = 0; i < counts.length; i++) {
         html += donutSegment(
-            offsets[i] / num_hlms,
-            (offsets[i] + counts[i]) / num_hlms,
+            offsets[i] / value,
+            (offsets[i] + counts[i]) / value,
             r,
             r0,
             ivpColors[i]
         );
     }
 
-    const value = clusterValue === 'dwellings' ? num_dwellings : num_hlms;
     // Format the value to be displayed
     const displayValue = value > 1000 ? (value / 1000).toFixed(1).toLocaleString() + 'K' : value.toLocaleString()
 
     html += `<circle cx="${r}" cy="${r}" r="${r0}" fill="white" style="opacity: .5;"/>
-        <text dominant-baseline="central" transform="translate(${r}, ${r})">
-        ${displayValue}
-        </text>
+            <text dominant-baseline="central" transform="translate(${r}, ${r})">
+            ${displayValue}
+            </text>
+        </g>
         </svg>
     </div>`;
 
@@ -145,6 +183,7 @@ function createPieChart(name, ivpCounts, clusterValue, num_hlms, num_dwellings) 
     el.innerHTML = html;
     return el.firstChild;
 }
+
 
 function donutSegment(start, end, r, r0, color) {
     if (end - start === 1) end -= 0.00001;

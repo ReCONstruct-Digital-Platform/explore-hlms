@@ -1,8 +1,4 @@
 
-Array.prototype.diff = function(arr2) { 
-    return this.filter(x => !arr2.includes(x)); 
-}
-
 // Load server data
 const dataset = document.currentScript.dataset;
 
@@ -57,7 +53,7 @@ const ivpE = ['>', ['get', 'ivp'], 30];
  */
 async function loadBaseLayers() {
     const mrcs = await fetch("/mrc_polygons").then(resp => resp.json());
-    const sc = await fetch("/service_center_polygons").then(resp => resp.json());
+    const sc = await fetch("/sc_polygons").then(resp => resp.json());
 
     map.addSource("mrcs", {
         type: "geojson",
@@ -99,13 +95,15 @@ async function loadBaseLayers() {
         }
     });
 
-    // Add the MRC labels
+    // Add the MRC labels - weèll hide them in clustering mode
+    // bc the cluster markers themselves will show the MRC/SC labels
+    // We'll show them in individual HLM mode however
     map.addLayer({
         id: "mrc_labels",
         type: "symbol",
         source: "mrcs",
         layout: {
-            'visibility': 'visible',
+            'visibility': 'none',
             "text-field": ["get", "name"],
             "text-allow-overlap": false,
             "text-size": 14
@@ -183,6 +181,7 @@ function createFilterButtons(filterButtonElementId, featuresToFilter, type) {
 
         // Generate a filter button for the SC
         const button = document.createElement('div');
+        button.classList = "h-[40px]"
         button.innerHTML+= `
         <input id="${name}_checkbox" type="checkbox" value=${id} class="peer hidden">
         <label for="${name}_checkbox" class="select-none cursor-pointer rounded-lg border-2 border-gray-200
@@ -274,21 +273,18 @@ function resetAll() {
         polygonsDisplayed['sc'].length = 0;
         // Unselect all SCs and select all MRCs
         if (!selectAllMRCs.hasAttribute('checked')) {
-            console.debug('selectall mrcs NOT checked, clicking to select all')
             selectAllMRCs.click()
         }
         if (selectAllSCs.hasAttribute('checked')) {
-            console.debug('selectall scs checked, clicking to UNselect all')
             selectAllSCs.click()
         }
         // After checking the 'select all' buttons above, go through each button
         // and check/uncheck any leftover buttons
-        filterButtonsMRCs.querySelectorAll('input:not(:checked)').forEach(input => {
-            console.debug(input)
+        filterButtonsMRCs.querySelectorAll('input[type="checkbox"]:not(:checked)').forEach(input => {
             input.checked = false;
             input.dispatchEvent(new Event('change', {bubbles: true}));
         })
-        filterButtonsSCs.querySelectorAll('input:checked').forEach(input => {
+        filterButtonsSCs.querySelectorAll('input[type="checkbox"]:checked').forEach(input => {
             input.checked = false;
             input.dispatchEvent(new Event('change', {bubbles: true}));
         })
@@ -299,22 +295,20 @@ function resetAll() {
             
         // Unselect all MRCs and select all SCs
         if (selectAllMRCs.hasAttribute('checked')) {
-            console.debug('selectall mrcs checked, clicking to UNselect all')
             selectAllMRCs.click()
         }
         
         if (!selectAllSCs.hasAttribute('checked')) {
-            console.debug('selectall SCs NOT checked, clicking to select all')
             selectAllSCs.click()
         }
         
         // After checking the 'select all' buttons above, go through each button
         // and check/uncheck any leftover buttons
-        filterButtonsMRCs.querySelectorAll('input:checked').forEach(input => {
+        filterButtonsMRCs.querySelectorAll('input[type="checkbox"]:checked').forEach(input => {
             input.checked = false;
             input.dispatchEvent(new Event('change', {bubbles: true}));
         })
-        filterButtonsSCs.querySelectorAll('input:not(:checked)').forEach(input => {
+        filterButtonsSCs.querySelectorAll('input[type="checkbox"]:not(:checked)').forEach(input => {
             input.checked = false;
             input.dispatchEvent(new Event('change', {bubbles: true}));
         })
@@ -322,14 +316,20 @@ function resetAll() {
 }
 
 
-
-async function clusterHLMsByMRC(clusterValue) {
+/**
+ * Load the HLM clusters from the server and display a custom marker for each.
+ * Gets the current cluster settings from the page
+ */
+async function loadAndClusterHLMs(type) {
 
     resetAll();
 
-    if (filtersChanged || !('hlm_clusters_by_mrc' in dataLoaded)) 
+    const dataIdKey = `hlm_clusters_by_${type}`
+    const apiEndpoint = `/hlm_clusters_by_${type}`
+
+    if (filtersChanged || !(dataIdKey in dataLoaded)) 
     {
-        dataLoaded['hlm_clusters_by_mrc'] = await fetch("/hlm_clusters_by_mrc", {
+        dataLoaded[dataIdKey] = await fetch(apiEndpoint, {
             method: "POST",
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify({
@@ -340,17 +340,14 @@ async function clusterHLMsByMRC(clusterValue) {
         filtersChanged = false;
     }
 
-    for (const mrc_data of dataLoaded['hlm_clusters_by_mrc']) {
-        // The unpacked variable names must match the field names returned by server
-        const {id, name, point, disrepair_states, num_hlms, num_dwellings} = mrc_data;
+    const clusterValue = document.querySelector('input[name="cluster-value"]:checked').value;
+    const clusterMarkerType = document.querySelector('input[name="cluster-marker-type"]:checked').value;
 
-        const ivpCounts = {};
-        for (const ivpCategory of disrepair_states) {
-            ivpCounts[ivpCategory] = ivpCounts[ivpCategory] ? ivpCounts[ivpCategory] + 1 : 1;
-        }
-        // Initialize the filter with all visible
-        // MRCsDisplayed.push(id);
-        const src = `mrc_${id}_hlms`;
+    for (const mrc_data of dataLoaded[dataIdKey]) {
+        // The unpacked variable names must match the field names returned by server
+        const {id, name, p: point, ivps} = mrc_data;
+
+        const src = `${type}_${id}_hlms`;
 
         // We add one source per service center
         map.addSource(src, {
@@ -358,71 +355,20 @@ async function clusterHLMsByMRC(clusterValue) {
             data: point,
             cluster: false
         });
-        clusterSources['mrc'].push(src);
-            
-        // Add a custom marker for each Service Center
-        const el = createPieChart(name, ivpCounts, clusterValue, num_hlms, num_dwellings);
-        // const el = createClusterMarkerElement(name, ivpCounts, num_hlms, num_dwellings);
+        clusterSources[type].push(src);
+        
+        // Add a custom marker for each cluster
+        const el = clusterMarkerType === 'pie' ? 
+            createPieChart(name, ivps, clusterValue)
+            : createClusterBoxElement(name, ivps, clusterValue);
 
-        clusterMarkers['mrc'][id] = new mapboxgl.Marker({
+        clusterMarkers[type][id] = new mapboxgl.Marker({
             element: el,
         }).setLngLat(point.geometry.coordinates);
 
-        clusterMarkers['mrc'][id].addTo(map);
-
+        clusterMarkers[type][id].addTo(map);
     }
 }
-
-
-
-async function clusterHLMsByServiceCenter(clusterValue) {
-
-    resetAll()
-
-    // Get current filter values before creating the sources
-    if (filtersChanged || !('hlm_clusters_by_sc' in dataLoaded)) {
-        dataLoaded['hlm_clusters_by_sc'] = await fetch("/hlm_clusters_by_service_center", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({
-                filter: filterData
-            })
-        }).then(resp => resp.json());
-        // Reset 
-        filtersChanged = false;
-    }
-
-    for (const sc_data of dataLoaded['hlm_clusters_by_sc']) {
-        // The unpacked variable names must match the field names returned by server
-        const {id, name, point, disrepair_states, num_hlms, num_dwellings} = sc_data;
-
-        const ivpCounts = {};
-        for (const ivpCategory of disrepair_states) {
-            ivpCounts[ivpCategory] = ivpCounts[ivpCategory] ? ivpCounts[ivpCategory] + 1 : 1;
-        }
-        
-        const src = `sc_${id}_hlms`;
-        
-        // We add one source per service center
-        map.addSource(src, {
-            type: "geojson",
-            data: point,
-            cluster: false
-        });
-        clusterSources['sc'].push(src);
-
-        // Add a custom marker for each Service Center
-        const el = createClusterMarkerElement(name, ivpCounts, clusterValue, num_hlms, num_dwellings);
-
-        clusterMarkers['sc'][id] = new mapboxgl.Marker({
-            element: el,
-        }).setLngLat(point.geometry.coordinates);
-
-        clusterMarkers['sc'][id].addTo(map);
-    }
-}
-
-
 
 
 
@@ -431,30 +377,23 @@ async function clusterHLMsByServiceCenter(clusterValue) {
  */
 async function loadDataLayers() {
 
-    showLoading();
 
     // Get the current clustering and filter settings
     const cluster = document.getElementById('cluster-switch').checked;
     const clusterBy = document.querySelector('input[name="cluster-by"]:checked').value;
-    const clusterValue = document.querySelector('input[name="cluster-value"]:checked').value;
 
     if (cluster) {
         // Remove the individual HLM layers
         ['hlm_point', 'hlm_point_labels', 'hlm_addresses_labels'].forEach(
             (layer) => map.getLayer(layer) && map.removeLayer(layer)
         )
-        
-        if (clusterBy === 'mrc') {
-            clusterHLMsByMRC(clusterValue)
-        }
-        else if (clusterBy === 'sc') {
-            clusterHLMsByServiceCenter(clusterValue);
-        }
-        else {
-            throw new Error('Invalid cluster by value');
-        }
+        showLoading();
+        map.setLayoutProperty('mrc_labels', 'visibility', 'none');
+        await loadAndClusterHLMs(clusterBy);
+        hideLoading();
     }
     else {
+        showLoading();
         // Reset all existing cluster markers
         Object.values(clusterMarkers).forEach(cm => Object.values(cm).forEach(m => m.remove()));
         // Remove all cluster sources
@@ -465,14 +404,13 @@ async function loadDataLayers() {
             cs.length = 0;
         });
 
-
         ['hlm_point', 'hlm_point_labels', 'hlm_addresses_labels'].forEach(
             (layer) => {
                 map.getLayer(layer) && map.removeLayer(layer);
             }
         )
-
-        console.log(filterData.spatialFilter)
+        
+        map.setLayoutProperty('mrc_labels', 'visibility', 'visible');
         
         // Get the HLMs from the server
         dataLoaded['hlms'] = await fetch("/get_hlms", {
@@ -530,6 +468,7 @@ async function loadDataLayers() {
             layout: {
                 "text-field": ["get", "num_dwellings"],
                 "text-allow-overlap": false,
+                "text-size": 14
             },
             maxzoom: HLM_OVERLAY_EASE_TO_ZOOM
         });
@@ -556,11 +495,13 @@ async function loadDataLayers() {
         map.on("mouseleave", "hlm_point", () => {
             map.getCanvas().style.cursor = "";
         });
+        
+        hideLoading();
+
     }
 
     renderLots(map, lastRenderedBounds);
 
-    hideLoading();
 }
 
 
@@ -570,12 +511,7 @@ async function loadDataLayers() {
 function hlmPointClickHandler(e) {
     const evalUnitId = e.features[0].properties.eval_unit_id;
     console.debug(`HLM Point clicked. ID: ${evalUnitId}`);
-    // Trigger the overlay 
     triggerHLMOverlay(evalUnitId, e.features[0].geometry.coordinates);
-
-    // TODO (Optional): Set the lot polygon as selected
-    // Hard to do because the polygon is most likely not loaded
-    // in a source or rendered when the HLM point is clicked.
 }
 
 
@@ -747,7 +683,7 @@ function renderLots(map, lastRenderedBounds, forceRender = false) {
     }
 
     // Else fetch data spanning the current bounds from the server
-    fetch(dataset.fetchLotsUrl, {
+    fetch("/get_lots", {
         method: "POST",
         mode: "same-origin", 
         cache: "default", 

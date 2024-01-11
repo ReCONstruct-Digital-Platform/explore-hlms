@@ -138,21 +138,22 @@ def get_hlm_clusters_by_mrc():
         --- See https://stackoverflow.com/questions/53508828/postgres-create-id-for-groups
         m.id as id,
         m.name as name,
-        count(*) as num_hlms,
-        sum(num_dwellings) as num_dwellings,
-        array_agg(disrepair_state) as disrepair_states,
         json_build_object(
             'type', 'Feature', 
             'geometry', ST_Centroid(m.geom)::json
-        ) as point 
+        ) as p,
+        json_agg(
+            json_build_object(
+                's', h.disrepair_state,
+                'dwel', h.num_dwellings
+            )
+        ) as ivps
         FROM mrcs m JOIN hlms h on ST_INTERSECTS(h.point, m.geom)
     """)
     group_by_clause = sql.SQL("m.id, m.name")
 
     if request.method == 'POST':
         data = request.json
-        # ivp_range_min = data['filter']['ivpRangeMin']
-        # ivp_range_max = data['filter']['ivpRangeMax']
         dwellings_min = data['filter']['dwellingsMin']
         dwellings_max = data['filter']['dwellingsMax']
         disrepair_categories = data['filter']['disrepairCategories']
@@ -181,51 +182,9 @@ def get_hlm_clusters_by_mrc():
 
 
 
-@app.get('/hlms_by_service_center')
-def get_hlms_by_service_center():
-    _, cur = _new_conn(dict_cursor=True)
 
-    select = f"""
-        SELECT 
-        --- Create a unique id for each service center group
-        --- See https://stackoverflow.com/questions/53508828/postgres-create-id-for-groups
-        dense_rank() over (order by service_center) sc_id,
-        service_center as sc_name,
-        count(*) as num_hlms,
-        sum(num_dwellings) as num_dwellings,
-        json_build_object(
-            'type', 'FeatureCollection', 'features', 
-            json_agg(
-                json_build_object(
-                    'type', 'Feature', 
-                    'geometry', ST_AsGeoJSON(point)::json,
-                    'properties', json_build_object(
-                        'id', id,
-                        'eval_unit_id', eval_unit_id, 
-                        'organism', organism, 
-                        'service_center', service_center, 
-                        'address', address, 
-                        'muni', muni, 
-                        'num_dwellings', num_dwellings, 
-                        'num_floors', num_floors, 
-                        'area_footprint', area_footprint, 
-                        'area_total', area_total, 
-                        'ivp', ivp, 
-                        'disrepair_state', disrepair_state, 
-                        'category', category
-                    )
-                )
-            )
-        ) as hlms 
-        FROM hlms GROUP BY service_center;"""
-    cur.execute(select)
-    res = cur.fetchall()
-
-    return res
-
-
-@app.route('/hlm_clusters_by_service_center', methods=['GET', 'POST'])
-def get_hlm_clusters_by_service_center():
+@app.route('/hlm_clusters_by_sc', methods=['GET', 'POST'])
+def get_hlm_clusters_by_sc():   
     """
     Return a single point per service center
     With a breakdown of the ivp classes and summary statistics
@@ -236,17 +195,20 @@ def get_hlm_clusters_by_service_center():
         SELECT 
         s.id,
         s.name,
-        count(*) as num_hlms,
-        sum(h.num_dwellings) as num_dwellings,
-        array_agg(h.disrepair_state) as disrepair_states,
         json_build_object(
             'type', 'Feature', 
             'geometry', ST_Centroid(s.geom)::json,
             'properties', json_build_object(
                 'id', s.id
             )
-        ) as point 
-        FROM hlms h JOIN sc s on ST_Intersects(s.geom, h.point)
+        ) as p, 
+        json_agg(
+            json_build_object(
+                's', h.disrepair_state,
+                'dwel', h.num_dwellings
+            )
+        ) as ivps
+        FROM hlms h JOIN sc s on h.service_center = s.name
     """)
     group_by_clause = sql.SQL("s.id, s.name")
     
@@ -262,7 +224,7 @@ def get_hlm_clusters_by_service_center():
             where_clause_parts.append(get_disrepair_category_filter(disrepair_categories))
 
         where_clause = sql.SQL(' AND ').join(where_clause_parts)
-        print(where_clause.as_string(_))
+        # print(where_clause.as_string(_))
 
         query = sql.SQL("{select} WHERE {where_clause} GROUP BY {group_by_clause}").format(
             select=select,
@@ -282,7 +244,7 @@ def get_hlm_clusters_by_service_center():
 
 
 
-@app.get('/service_center_polygons')
+@app.get('/sc_polygons')
 def get_service_center_polygons():
     _, cur = _new_conn(dict_cursor=True)
 
@@ -367,9 +329,7 @@ def get_hlms():
                     )
                 )
             )
-        ) FROM {HLM_TABLE} hlm
-
-        """)
+        ) FROM {HLM_TABLE} hlm """)
     
     if request.method == 'POST':
         data = request.json
@@ -378,7 +338,7 @@ def get_hlms():
         disrepair_categories = data['filter']['disrepairCategories']
         mrc_ids = set(data['filter']['spatialFilter']['mrc'])
         sc_ids = set(data['filter']['spatialFilter']['sc'])
-        join_clause = None
+        # join_clause = None
         join_clause_parts = []
         
         where_clause_parts = []
@@ -406,11 +366,10 @@ def get_hlms():
                 join_clause_parts.append(sql.SQL('JOIN mrcs mrc ON ST_Intersects(mrc.geom, hlm.point)'))
                 mrc_and_sc_filter_parts.append(get_mrc_filter(mrc_ids))
             if sc_ids:
-                join_clause_parts.append(sql.SQL('JOIN sc ON ST_Intersects(sc.geom, hlm.point)'))
+                join_clause_parts.append(sql.SQL('JOIN sc ON hlm.service_center = sc.name'))
                 mrc_and_sc_filter_parts.append(get_sc_filter(sc_ids))
 
             if mrc_and_sc_filter_parts:
-                join_clause
                 mrc_and_sc_clause = sql.SQL(' OR ').join(mrc_and_sc_filter_parts)
                 where_clause_parts.append(sql.SQL("({mrc_and_sc_clause})").format(
                     mrc_and_sc_clause=mrc_and_sc_clause
@@ -424,16 +383,18 @@ def get_hlms():
             join_clause=join_clause,
             where_clause=where_clause
         )
-        print(query.as_string(conn))
-        cur.execute(query)
     else:
-        cur.execute(select)
+        query = select
 
+    cur.execute(query)
     res = cur.fetchone()[0]
 
     # Needed so we can display no data
     if res['features'] is None:
         res['features'] = []
+
+    # print(query.as_string(conn))
+    # print(len(res['features']))
 
     return res
 
@@ -505,7 +466,10 @@ def get_lots():
     dwellings_min = data['filter']['dwellingsMin']
     dwellings_max = data['filter']['dwellingsMax']
     disrepair_categories = data['filter']['disrepairCategories']
+    mrc_ids = set(data['filter']['spatialFilter']['mrc'])
+    sc_ids = set(data['filter']['spatialFilter']['sc'])
 
+    
     select_from = sql.SQL("""
         select json_build_object(
             'type', 'FeatureCollection', 'features', 
@@ -526,15 +490,18 @@ def get_lots():
                 json_agg(h.*) as hlms, round(avg(h.ivp)::numeric, 1) as avg_ivp,
                 json_agg(h.num_dwellings) as num_dwellings
                 from {evalunit_table} e
-                join {hlm_table} h on h.eval_unit_id = e.id
+                {join_clause}
                 {where_clause}
                 GROUP BY e.id
         ) as res;""")
     
+    # Already know we want to join on hlms
+    join_clause_parts = [sql.SQL("JOIN hlms h on h.eval_unit_id = e.id")]
+
     where_clause_parts = []
     # Only return lots of HLMs within the current viewport
     where_clause_parts.append(
-        sql.SQL("WHERE ST_INTERSECTS(ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326), h.point)")
+        sql.SQL("WHERE ST_Intersects(ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326), h.point)")
             .format(
                 minx=sql.Literal(minx), 
                 miny=sql.Literal(miny), 
@@ -543,65 +510,61 @@ def get_lots():
     )
     where_clause_parts.append(get_disrepair_category_filter(disrepair_categories))
     where_clause_parts.append(get_dwellings_filter(dwellings_min, dwellings_max))
+
+
+    # Process the spatial filters
+    mrc_and_sc_filter_parts = []
+
+    # If both sets are empty - we should show NO data
+    if not mrc_ids and not sc_ids:
+        where_clause_parts.append(sql.SQL('h.id in (null)'))
+
+    # If either set is full - we should not do any spatial filtering
+    elif mrc_ids == ALL_MRC_IDS or sc_ids == ALL_SC_IDS:
+        pass
+
+    else:
+        # One of the sets is not empty, and none is full
+        # We add the spatial joins progressively, based on which 
+        # sets are present as they incur a large cost in query time
+        if mrc_ids:
+            join_clause_parts.append(sql.SQL('JOIN mrcs mrc ON ST_Intersects(mrc.geom, h.point)'))
+            mrc_and_sc_filter_parts.append(get_mrc_filter(mrc_ids))
+        if sc_ids:
+            join_clause_parts.append(sql.SQL('JOIN sc ON h.service_center = sc.name'))
+            mrc_and_sc_filter_parts.append(get_sc_filter(sc_ids))
+
+        if mrc_and_sc_filter_parts:
+            mrc_and_sc_clause = sql.SQL(' OR ').join(mrc_and_sc_filter_parts)
+            where_clause_parts.append(sql.SQL("({mrc_and_sc_clause})").format(
+                mrc_and_sc_clause=mrc_and_sc_clause
+            ))
+
+    join_clause = sql.SQL(' ').join(join_clause_parts)
     where_clause = sql.SQL(' AND ').join(where_clause_parts)
 
-    print(where_clause.as_string(conn))
     
     query = select_from.format(
         evalunit_table=sql.Identifier(EVALUNIT_TABLE),
-        hlm_table=sql.Identifier(HLM_TABLE),
+        join_clause=join_clause,
         where_clause=where_clause
     )
     cur.execute(query)
     res = cur.fetchone()[0]
 
+    if res['features'] is None:
+        res['features'] = []
+
+    # print(query.as_string(conn))
+    # print(len(res['features']))
+
     return res
 
-
-
-# @app.route('/lot_info_no_hlm', methods=['POST'])
-# def lot_info_no_hlm():
-#     data = request.json
-#     print(data)
-#     _, cur = _new_conn()
-
-#     eval_unit_id = data['id']
-    
-#     cur.execute(f"""
-#         select json_build_object(
-#             'id', e.id, 
-#             'address', e.address,
-#             'lot_id', e.lot_id,
-#             'muni', e.muni,
-#             'num_adr_sup', e.num_adr_sup,
-#             'const_yr', e.const_yr, 
-#             'const_yr_real', e.const_yr_real, 
-#             'phys_link', e.phys_link,   
-#             'const_type', e.const_type,
-#             'num_dwelling', e.num_dwelling,
-#             'max_floor', e.max_floors,
-#             'lot_area', e.lot_area,
-#             'lot_lin_dim', e.lot_lin_dim,
-#             'floor_area', e.floor_area,
-#             'lot_value', e.lot_value,
-#             'building_value', e.building_value,
-#             'value', e.value,
-#             'prev_value', e.prev_value,
-#             'owner_date', TO_CHAR(e.owner_date, 'dd/mm/yyyy'),
-#             'owner_type', e.owner_type,
-#             'owner_status', e.owner_status
-#         ) 
-#         from {EVALUNIT_TABLE} e 
-#         where e.id = %s
-#         group by e.id, e.address;""", (eval_unit_id,))
-#     res = cur.fetchone()[0]
-
-#     return render_template('unit_info.j2', unit=res)
 
 @app.route('/lot_info', methods=['POST'])
 def lot_info():
     data = request.json
-    print(data)
+    # print(data)
     _, cur = _new_conn()
 
     eval_unit_id = data['id']

@@ -10,8 +10,8 @@
     <link href='https://api.mapbox.com/mapbox-gl-js/v3.0.0-beta.1/mapbox-gl.css' rel='stylesheet' />
     <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
     <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" type="text/css">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+    <!-- <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script> -->
 </head>
 <body>
     <div class="centered">
@@ -34,13 +34,13 @@
                 <div id="menu-clustering" class="text-lg">
 
                     <div id="cluster-settings-header" class="flex items-center border-b-[1px] border-gray-100 mb-2">
-                        <h2 class="text-3xl mr-2 ">
+                        <h2 class="text-3xl font-semibold mr-2">
                             Regroupement
                         </h2>
-                        <svg id="cluster-settings-icon-up" class="ms-2" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down" viewBox="0 0 16 16">
+                        <svg id="cluster-settings-icon-up" class="ms-2 hidden" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down" viewBox="0 0 16 16">
                             <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
                         </svg>
-                        <svg id="cluster-settings-icon-down" class="ms-2 hidden" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-up" viewBox="0 0 16 16">
+                        <svg id="cluster-settings-icon-down" class="ms-2" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-up" viewBox="0 0 16 16">
                             <path fill-rule="evenodd" d="M7.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 5.707l-5.646 5.647a.5.5 0 0 1-.708-.708l6-6z"></path>
                         </svg>
                     </div>
@@ -85,6 +85,30 @@
                         </div>
 
                         <div class="flex flex-col mt-2">
+                            Type de marqueur
+                            <div class="ms-4 mt-1 text-base">
+                                <div class="flex items-center mb-2">
+                                    <input  id="cluster-marker-type-pie" type="radio" value="pie" name="cluster-marker-type" 
+                                    class="h-4 w-4 peer border-blue-600 text-blue-600 focus:ring-blue-600 focus:ring-2 cursor-pointer
+                                    disabled:text-gray-500 disabled:bg-gray-500 disabled:border-gray-500">
+                                    <label for="cluster-marker-type-pie" 
+                                        class="block ms-2 cursor-pointer peer-disabled:text-gray-400">
+                                        Circulaire
+                                    </label>
+                                </div>
+                                <div class="flex items-center mb-2">
+                                    <input checked id="cluster-marker-type-box" type="radio" value="box" name="cluster-marker-type" 
+                                    class="h-4 w-4 peer border-blue-600 text-blue-600 focus:ring-blue-600 focus:ring-2 cursor-pointer
+                                    disabled:text-gray-500 disabled:bg-gray-500 disabled:border-gray-500">
+                                    <label for="cluster-marker-type-box" 
+                                        class="block ms-2 cursor-pointer peer-disabled:text-gray-400">
+                                        Rectangulaire
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col mt-2">
                             Valeurs
                             <div class="ms-4 mt-1 text-base">
                                 <div class="flex items-center mb-2">
@@ -115,13 +139,13 @@
                 <div id="menu-filters" class="text-lg">
 
                     <div id="filter-settings-header" class="flex items-center mb-2 border-b-[1px] border-gray-100">
-                        <h2 class="text-3xl mr-2">
+                        <h2 class="text-3xl font-semibold mr-2">
                             Filtres
                         </h2>
-                        <svg id="filter-settings-icon-up" class="ms-2" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down" viewBox="0 0 16 16">
+                        <svg id="filter-settings-icon-up" class="ms-2 hidden" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down" viewBox="0 0 16 16">
                             <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
                         </svg>
-                        <svg id="filter-settings-icon-down" class="ms-2 hidden" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-up" viewBox="0 0 16 16">
+                        <svg id="filter-settings-icon-down" class="ms-2 " xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-up" viewBox="0 0 16 16">
                             <path fill-rule="evenodd" d="M7.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 5.707l-5.646 5.647a.5.5 0 0 1-.708-.708l6-6z"></path>
                         </svg>
                     </div>
@@ -148,8 +172,8 @@
                                                     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
                                                 </svg>
                                             </div>
-                                            <input type="text" id="search-mrc" autocomplete="off"
-                                                class="block py-2 ps-4 px-0 w-full bg-transparent border-0 appearance-none
+                                            <input id="search-mrc" type="text" autocomplete="off"
+                                                class="block py-2 ps-5 w-full bg-transparent border-0 appearance-none
                                                 focus:outline-none focus:ring-0 focus:text-gray-50 peer" 
                                                 placeholder="Search...">
                                         </div>
@@ -181,9 +205,9 @@
                                                     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
                                                 </svg>
                                             </div>
-                                            <input type="text" id="search-sc" autocomplete="off"
-                                                class="block py-2 ps-4 px-0 w-full bg-transparent border-0 appearance-none
-                                                focus:outline-none focus:ring-0 focus:text-gray-50 peer" 
+                                            <input id="search-sc" type="text" autocomplete="off"
+                                            class="block py-2 ps-5 w-full bg-transparent border-0 appearance-none
+                                            focus:outline-none focus:ring-0 focus:text-gray-50 peer" 
                                                 placeholder="Search...">
                                         </div>
                                     </div>
@@ -197,7 +221,7 @@
 
                         <div class="flex items-center mb-2">
                             Indice d'État 
-                            <a class="btn info-icon pb-2 ps-2" type="button" target="_blank" 
+                            <a class="pb-2 ps-2 relative top-1" type="button" target="_blank" 
                                 href="http://www.habitation.gouv.qc.ca/fileadmin/internet/documents/partenaires/guides/guide-immeuble-supplement1-section02.pdf#page=14">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" class="bi bi-info-circle" viewBox="0 0 16 16">
                                 <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
@@ -206,12 +230,53 @@
                             </a>
                         </div>
 
-                        <div class="d-inline-flex gap-2 mb-3">
-                            <button id="button-disrepair-A" data-value="A" type="button" class="btn button-disrepair button-disrepair-A active" data-bs-toggle="button" aria-pressed="true">A</button>
-                            <button id="button-disrepair-B" data-value="B" type="button" class="btn button-disrepair button-disrepair-B active" data-bs-toggle="button" aria-pressed="true">B</button>
-                            <button id="button-disrepair-C" data-value="C" type="button" class="btn button-disrepair button-disrepair-C active" data-bs-toggle="button" aria-pressed="true">C</button>
-                            <button id="button-disrepair-D" data-value="D" type="button" class="btn button-disrepair button-disrepair-D active" data-bs-toggle="button" aria-pressed="true">D</button>
-                            <button id="button-disrepair-E" data-value="E" type="button" class="btn button-disrepair button-disrepair-E active" data-bs-toggle="button" aria-pressed="true">E</button>
+                        <div id="disrepair-buttons" class="gap-2 mb-3">
+                            <button class="">
+                                <input id="button-disrepair-A" type="checkbox" value="A" class="peer hidden" checked>
+                                <label for="button-disrepair-A" class="flex justify-center text-center items-center select-none cursor-pointer
+                                aspect-square w-[36px] rounded-md border-2 bg-gray-500 border-gray-500 text-gray-100 
+                                 hover:bg-gray-600 hover:border-gray-600 transition-colors duration-200 ease-in-out 
+                                peer-checked:bg-[#198754] peer-checked:text-gray-50 peer-checked:border-[#198754]
+                                peer-checked:hover:bg-[#285d44] peer-checked:hover:border-[#285d44]"> 
+                                A</label>
+                            </button>
+                            <button>
+                                <input id="button-disrepair-B" type="checkbox" value="B" class="peer hidden" checked>
+                                <label for="button-disrepair-B" class="flex justify-center text-center items-center select-none cursor-pointer 
+                                aspect-square w-[36px] rounded-md border-2 bg-gray-500 border-gray-500 text-gray-100 
+                                 hover:bg-gray-600 hover:border-gray-600 transition-colors duration-200 ease-in-out 
+                                peer-checked:bg-[#b1ce3c] peer-checked:text-gray-50 peer-checked:border-[#b1ce3c]
+                                peer-checked:hover:bg-[#9aae4c] peer-checked:hover:border-[#9aae4c]"> 
+                                B</label>
+                            </button>
+                            <button>
+                                <input id="button-disrepair-C" type="checkbox" value="C" class="peer hidden" checked>
+                                <label for="button-disrepair-C" class="flex justify-center text-center items-center select-none cursor-pointer 
+                                aspect-square w-[36px] rounded-md border-2 bg-gray-500 border-gray-500 text-gray-100 
+                                 hover:bg-gray-600 hover:border-gray-600 transition-colors duration-200 ease-in-out 
+                                peer-checked:bg-[#ffd147] peer-checked:text-gray-50 peer-checked:border-[#ffd147]
+                                peer-checked:hover:bg-[#eeba5a] peer-checked:hover:border-[#eeba5a]"> 
+                                C</label>
+                            </button>
+                            <button>
+                                <input id="button-disrepair-D" type="checkbox" value="D" class="peer hidden" checked>
+                                <label for="button-disrepair-D" class="flex justify-center text-center items-center select-none cursor-pointer 
+                                aspect-square w-[36px] rounded-md border-2 bg-gray-500 border-gray-500 text-gray-100 
+                                 hover:bg-gray-600 hover:border-gray-600 transition-colors duration-200 ease-in-out 
+                                peer-checked:bg-[#E86430] peer-checked:text-gray-50 peer-checked:border-[#E86430]
+                                peer-checked:hover:bg-[#b54d24] peer-checked:hover:border-[#b54d24]"> 
+                                D</label>
+                            </button>
+                            <button>
+                                <input id="button-disrepair-E" type="checkbox" value="E" class="peer hidden" checked>
+                                <label for="button-disrepair-E" class="flex justify-center text-center items-center select-none cursor-pointer 
+                                aspect-square w-[36px] rounded-md border-2 bg-gray-500 border-gray-500 text-gray-100 
+                                 hover:bg-gray-600 hover:border-gray-600 transition-colors duration-200 ease-in-out 
+                                peer-checked:bg-[#de2235] peer-checked:text-gray-50 peer-checked:border-[#de2235]
+                                peer-checked:hover:bg-[#b93341] peer-checked:hover:border-[#b93341]"> 
+                                E</label>
+                            </button>
+                        
                         </div>
 
                         <div class="mb-2">
