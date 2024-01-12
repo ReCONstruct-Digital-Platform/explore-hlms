@@ -254,11 +254,17 @@ def get_service_center_polygons():
                     'geometry', geom::json,
                     'properties', json_build_object(
                         'id', id,
-                        'name', name
+                        'name', name,
+                        --- ST_Envelope returns: ((MINX, MINY), (MINX, MAXY), (MAXX, MAXY), (MAXX, MINY), (MINX, MINY))
+                        --- Mapbox needs minx, miny and maxx, maxy
+                        'bbox_sw', ST_Envelope(geom)::json->'coordinates'->0->0,
+                        'bbox_ne', ST_Envelope(geom)::json->'coordinates'->0->2
                     )
                 ) as json
         FROM sc 
-        ORDER BY name ASC;"""
+        --- we order by area descending because the polygons overlap
+        --- and the smaller ones might get fully covered by larger ones
+        ORDER BY area DESC;"""
     cur.execute(select)
     res = cur.fetchall()
 
@@ -288,7 +294,11 @@ def get_mrc_polygons():
                     'geometry', ST_Simplify(sq.geom, 0.00085)::json,
                     'properties', json_build_object(
                         'id', sq.id,
-                        'name', sq.name
+                        'name', sq.name,
+                        --- ST_Envelope returns: ((MINX, MINY), (MINX, MAXY), (MAXX, MAXY), (MAXX, MINY), (MINX, MINY))
+                        --- Mapbox needs minx, miny and maxx, maxy
+                        'bbox_sw', ST_Envelope(geom)::json->'coordinates'->0->0,
+                        'bbox_ne', ST_Envelope(geom)::json->'coordinates'->0->2
                     )
                 )
             )
@@ -308,10 +318,20 @@ def get_mrc_polygons():
     res = cur.fetchone()[0]
     return res
 
+@app.route('/get_area_info', methods=['POST'])
+def get_area_info():
+    conn, cur = _new_conn()
+
+    return '<div>Test</div>'
 
 @app.route("/get_hlms", methods=['GET', 'POST'])
 def get_hlms():
     conn, cur = _new_conn()
+
+    data = request.json
+    id = data['id']
+    type = data['type']
+    
 
     select = sql.SQL(f"""
         SELECT json_build_object(

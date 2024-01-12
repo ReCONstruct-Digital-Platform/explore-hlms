@@ -4,6 +4,15 @@ const dataset = document.currentScript.dataset;
 
 var map;
 const lastRenderedBounds = {bounds: null};
+
+const hoveredPolygonId = {
+    'mrc': 0,
+    'sc': 0
+}
+const clickedPolygonId = {
+    'mrc': 0,
+    'sc': 0
+}
 var hoveredLotId = null;
 var clickedLotId = null;
 const hlmSources = []
@@ -18,6 +27,7 @@ const polygonsDisplayed = {
     'mrc': [],
     'sc': []
 }
+
 
 const clusterSources = {
     'mrc': [],
@@ -52,27 +62,29 @@ const ivpE = ['>', ['get', 'ivp'], 30];
  * based on user selected filters/cluster settings
  */
 async function loadBaseLayers() {
-    const mrcs = await fetch("/mrc_polygons").then(resp => resp.json());
+    const mrc = await fetch("/mrc_polygons").then(resp => resp.json());
     const sc = await fetch("/sc_polygons").then(resp => resp.json());
 
-    map.addSource("mrcs", {
+    map.addSource("mrc", {
         type: "geojson",
-        data: mrcs
+        data: mrc,
+        promoteId: 'id'
     });
-
+    
     map.addSource("sc", {
         type: "geojson",
-        data: sc
+        data: sc,
+        promoteId: 'id'
     });
 
-    createFilterButtons('mrc-filter-buttons', mrcs.features, 'mrc');
+    createFilterButtons('mrc-filter-buttons', mrc.features, 'mrc');
     createFilterButtons('sc-filter-buttons', sc.features, 'sc');
     
     // MRC outline is currently always visible
     map.addLayer({
         id: 'mrc_outlines',
         type: 'line',
-        source: 'mrcs',
+        source: 'mrc',
         layout: {
             'visibility': 'visible',
         },
@@ -85,13 +97,24 @@ async function loadBaseLayers() {
     map.addLayer({
         id: 'mrc_polygons',
         type: 'fill',
-        source: 'mrcs',
+        source: 'mrc',
         layout: {
             'visibility': 'visible',
         },
         paint: {
             'fill-color': MRCPolygonColors,
-            'fill-opacity': 0.3
+            'fill-opacity': 0.3,
+            'fill-opacity': [
+                'case',
+                ['boolean', ['feature-state', 'hover'], false],
+                0.75,
+                [
+                    'case',
+                    ['boolean', ['feature-state', 'clicked'], false],
+                    0.75,   
+                    0.3
+                ]
+            ]
         }
     });
 
@@ -101,7 +124,7 @@ async function loadBaseLayers() {
     map.addLayer({
         id: "mrc_labels",
         type: "symbol",
-        source: "mrcs",
+        source: "mrc",
         layout: {
             'visibility': 'none',
             "text-field": ["get", "name"],
@@ -137,9 +160,22 @@ async function loadBaseLayers() {
         },
         paint: {
             'fill-color': serviceCenterPolygonColors,
-            'fill-opacity': 0.3
+            'fill-opacity': 0.3,
+            'fill-opacity': [
+                'case',
+                ['boolean', ['feature-state', 'hover'], false],
+                0.5,
+                [
+                    'case',
+                    ['boolean', ['feature-state', 'clicked'], false],
+                    0.5,   
+                    0.3
+                ]
+            ]
         }
     });
+
+    
 
     map.addLayer({
         id: "sc_labels",
@@ -161,6 +197,70 @@ async function loadBaseLayers() {
         map.setFilter(layer, ['in', 'id', ''])
     });
 
+
+    // Hover effects for polygon layers
+    ['mrc_polygons', 'sc_polygons'].forEach(layer => {
+
+        const type = layer.split('_')[0];
+
+        // When the user moves their mouse over the layer, we'll update the
+        map.on("mousemove", layer, (e) => {
+            map.getCanvas().style.cursor = 'pointer';
+    
+            if (e.features.length > 0) {
+                if (hoveredPolygonId[type] !== null) {
+                    map.setFeatureState(
+                        { source: type, id: hoveredPolygonId[type] },
+                        { hover: false }
+                    );
+                }
+                hoveredPolygonId[type] = e.features[0].id;
+                map.setFeatureState(
+                    { source: type, id: hoveredPolygonId[type] },
+                    { hover: true }
+                );
+                clusterMarkers[type][hoveredPolygonId[type]]._element.style.zIndex = 100;
+            }
+        });
+    
+        map.on("mouseleave", layer, () => {
+            map.getCanvas().style.cursor = '';
+    
+            if (hoveredPolygonId[type] !== null) {
+                map.setFeatureState(
+                    { source: type, id: hoveredPolygonId[type] },
+                    { hover: false }
+                );
+            }
+            hoveredPolygonId[type] = null;
+            clusterMarkers[type][hoveredPolygonId[type]]._element.style.zIndex = '';
+        });
+
+        
+        map.on("click", layer, e => {
+            // e is of type Mapbox::MapMouseEvent
+            e.originalEvent.stopPropagation();
+
+            if (e.features.length > 0) {
+                if (clickedPolygonId[type] !== null) {
+                    map.setFeatureState(
+                        { source: type, id: clickedPolygonId[type] },
+                        { clicked: false }
+                    );
+                }
+                clickedPolygonId[type] = e.features[0].id;
+                map.setFeatureState(
+                    { source: type, id: clickedPolygonId[type] },
+                    { clicked: true }
+                );
+            }
+
+            triggerAreaOverlay(e.features[0].properties, type)
+        });
+
+    });
+
+
 }
 
 
@@ -172,6 +272,11 @@ function createFilterButtons(filterButtonElementId, featuresToFilter, type) {
 
     const layersToFilter = [`${type}_polygons`, `${type}_outlines`, `${type}_labels`];
 
+    // The server returns service center polygons sorted by area
+    // so no small polygons gets fully overlapped by a larger one.
+    // We want the buttons to be in alphabetical order however, so we sort them here.
+    if (type === 'sc') featuresToFilter.sort((a,b) => a.properties.name.localeCompare(b.properties.name));
+
     for (const feature of featuresToFilter) {
 
         const {id, name} = feature.properties;
@@ -181,6 +286,7 @@ function createFilterButtons(filterButtonElementId, featuresToFilter, type) {
 
         // Generate a filter button for the SC
         const button = document.createElement('div');
+        button.id = `${type}_${id}_filter`
         button.classList = "h-[40px]"
         button.innerHTML+= `
         <input id="${name}_checkbox" type="checkbox" value=${id} class="peer hidden">
@@ -239,7 +345,20 @@ function createFilterButtons(filterButtonElementId, featuresToFilter, type) {
             else {
                 layersToFilter.forEach(l => map.setFilter(l, ['in', 'id', '']));
             }
-        })
+        });
+
+        button.addEventListener('mouseenter', e => {
+            // Set feature state to hover
+            map.setFeatureState({source: type, id: id}, {hover: true});
+            
+            console.debug(clusterMarkers[type][id]._element.style.zIndex)
+            // Increase the z-index of the marker so it pops out
+            clusterMarkers[type][id]._element.style.zIndex = 100;
+        });
+        button.addEventListener('mouseleave', e => {
+            map.setFeatureState({source: type, id: id}, {hover: false});
+            clusterMarkers[type][id]._element.style.zIndex = '';
+        });
     }
 }
 
@@ -506,8 +625,6 @@ async function loadDataLayers() {
 
 
 
-
-
 function hlmPointClickHandler(e) {
     const evalUnitId = e.features[0].properties.eval_unit_id;
     console.debug(`HLM Point clicked. ID: ${evalUnitId}`);
@@ -594,6 +711,64 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
+async function triggerAreaOverlay(props, type) {
+
+    // Get the SW and NE points of the bounding box
+    const bbox = [
+        JSON.parse(props.bbox_sw),
+        JSON.parse(props.bbox_ne)
+    ]
+    
+    const overlayElement = document.getElementById('info-overlay');
+    // Get the overlay from the server as HTML
+    const overlayHTMLContent = await fetch(
+        "/get_area_info", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", },
+            body: JSON.stringify({ id: props.id, type: type }),
+        })
+        // Text instead of JSON because we're getting the rendered HTML from the server
+        .then(response => response.text());
+    
+    overlayElement.innerHTML = overlayHTMLContent;
+
+    // Execute all scripts contained within the HTML
+    var scripts = overlayElement.querySelectorAll("script");
+    for (var i = 0; i < scripts.length; i++) {
+        if (scripts[i].innerText) {
+        eval(scripts[i].innerText);
+    }}
+
+    overlayElement.setAttribute('data-visible', true);
+    // Hide the menu if it is currently visible
+    document.getElementById('menu-overlay-button').setAttribute('aria-pressed', false);
+    document.getElementById('menu-overlay').setAttribute('data-visible', false);
+    
+    // if (map.getZoom() >= 16.5) return;
+
+    // Quick Maff to position the lot in the middle of screen space
+    // left over after showing the overlay. 
+    // Semi complicated because we have to give an offset from the center.
+    const mapWidth = map._containerWidth;
+    const overlayWidth = overlayElement.offsetWidth;
+    const remainingWidth = mapWidth - overlayWidth
+
+    const isOverlayLargerThanHalfScreen = (0.5 * map._containerWidth) < overlayWidth;
+    const deltaOffset = Math.abs((0.5 * mapWidth) - overlayWidth)
+    
+    const offset = isOverlayLargerThanHalfScreen ?
+        0.5 * (remainingWidth + deltaOffset) :
+        (0.5 * remainingWidth) - deltaOffset;
+
+    map.fitBounds(bbox, {
+        // padding: {top: 10, bottom:25, left: 15, right: 5},
+        duration: 1000,
+        offset: [-offset + 100, 0]
+    });
+
+}
+
+
 async function triggerHLMOverlay(evalUnitId, centerLngLat) {
     const overlayElement = document.getElementById('info-overlay');
     // Get the overlay from the server as HTML
@@ -663,8 +838,7 @@ const lotClickHandler = (e) => {
         );
     }
 
-    const evalUnitId = e.features[0].properties.id;
-    triggerHLMOverlay(evalUnitId, e.lngLat);
+    triggerHLMOverlay(e.features[0].properties.id, e.lngLat);
 }
 
 
