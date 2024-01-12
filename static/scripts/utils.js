@@ -36,6 +36,64 @@ const interpolate = (x, y, a) => {
 }
 
 
+function createSVGHistograms(data) {
+    const {id, name, ivps} = data;
+
+    const ivpCountsDwellings = {
+        'A': 0,
+        'B': 0,
+        'C': 0,
+        'D': 0,
+        'E': 0,
+    };
+    const ivpCountsHLMs = {
+        'A': 0,
+        'B': 0,
+        'C': 0,
+        'D': 0,
+        'E': 0,
+    };
+    
+    ivps.forEach(entry => {
+        const {dwel: dwellings, s: ivpCategory} = entry;
+        ivpCountsHLMs[ivpCategory] += 1
+        ivpCountsDwellings[ivpCategory] += dwellings;
+    })
+    const countsHLMs = Object.values(ivpCountsHLMs);
+    const totalHLMs = ivps.length;
+    const countsDwellings = Object.values(ivpCountsDwellings);
+    const totalDwellings = countsDwellings.reduce((a,b) => a + b);
+
+    // Adjust the box width based on the name length
+    const boxWidth = Math.max(name.length * 7 + 25, 125);
+    const boxHeight = 50;
+    
+
+    let histogramHLMs = `
+    <svg viewBox="0 0 ${boxWidth} ${boxHeight}" width="${boxWidth}" height="${boxHeight}">
+    <rect width="${boxWidth}" height="${boxHeight}" x="0" y="0" fill="white" style="opacity: .75;" />`
+
+    histogramHLMs += (clusterValue === 'hlms') ? ` HLMs</text>` : ` habitations </text>`;
+    
+    let xOffset = 5;
+    const maxBarHeight = 50;
+
+    counts.forEach((count, i) => {
+        const frac = count / total;
+        const subW = Math.ceil(maxBarHeight * frac);
+        histogramHLMs += `<rect width="${subW}" height="12" x="${xOffset}" y="34" fill="${ivpColors[i]}" />`
+        xOffset += subW;
+    });
+
+    histogramHLMs += `</text></svg>`;
+
+    const el = document.createElement("div");
+    el.innerHTML = histogramHLMs;
+    return el;
+
+}
+
+
 /** 
  * Create a custom SVG element for our cluster markers
  * They show the cluster name, number of HLMs and number of dwellings

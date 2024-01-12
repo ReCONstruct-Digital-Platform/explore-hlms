@@ -6,12 +6,12 @@ var map;
 const lastRenderedBounds = {bounds: null};
 
 const hoveredPolygonId = {
-    'mrc': 0,
-    'sc': 0
+    'mrc': null,
+    'sc': null
 }
 const clickedPolygonId = {
-    'mrc': 0,
-    'sc': 0
+    'mrc': null,
+    'sc': null
 }
 var hoveredLotId = null;
 var clickedLotId = null;
@@ -27,7 +27,6 @@ const polygonsDisplayed = {
     'mrc': [],
     'sc': []
 }
-
 
 const clusterSources = {
     'mrc': [],
@@ -107,18 +106,18 @@ async function loadBaseLayers() {
             'fill-opacity': [
                 'case',
                 ['boolean', ['feature-state', 'hover'], false],
-                0.75,
+                0.5,
                 [
                     'case',
                     ['boolean', ['feature-state', 'clicked'], false],
-                    0.75,   
+                    0.5,   
                     0.3
                 ]
             ]
         }
     });
 
-    // Add the MRC labels - weèll hide them in clustering mode
+    // Add the MRC labels - we'll hide them in clustering mode
     // bc the cluster markers themselves will show the MRC/SC labels
     // We'll show them in individual HLM mode however
     map.addLayer({
@@ -208,18 +207,20 @@ async function loadBaseLayers() {
             map.getCanvas().style.cursor = 'pointer';
     
             if (e.features.length > 0) {
+                const id = e.features[0].id;
                 if (hoveredPolygonId[type] !== null) {
                     map.setFeatureState(
                         { source: type, id: hoveredPolygonId[type] },
                         { hover: false }
                     );
                 }
-                hoveredPolygonId[type] = e.features[0].id;
+
+                hoveredPolygonId[type] = id;
                 map.setFeatureState(
-                    { source: type, id: hoveredPolygonId[type] },
+                    { source: type, id: id},
                     { hover: true }
                 );
-                clusterMarkers[type][hoveredPolygonId[type]]._element.style.zIndex = 100;
+                if (id in clusterMarkers[type]) clusterMarkers[type][id]._element.style.zIndex = 100;
             }
         });
     
@@ -231,31 +232,49 @@ async function loadBaseLayers() {
                     { source: type, id: hoveredPolygonId[type] },
                     { hover: false }
                 );
+                clusterMarkers[type][hoveredPolygonId[type]]._element.style.zIndex = '';
+                hoveredPolygonId[type] = null;
             }
-            hoveredPolygonId[type] = null;
-            clusterMarkers[type][hoveredPolygonId[type]]._element.style.zIndex = '';
         });
 
         
         map.on("click", layer, e => {
             // e is of type Mapbox::MapMouseEvent
             e.originalEvent.stopPropagation();
+            // We don't want to click the area polygons when we're not clustering
+            if (!document.getElementById('cluster-switch').checked) return;
 
             if (e.features.length > 0) {
+                const id = e.features[0].id;
+                // Reset the previous clicked polygon if there was one
                 if (clickedPolygonId[type] !== null) {
                     map.setFeatureState(
                         { source: type, id: clickedPolygonId[type] },
                         { clicked: false }
                     );
+                    clusterMarkers[type][clickedPolygonId[type]]._element.style.zIndex = '';
                 }
-                clickedPolygonId[type] = e.features[0].id;
+                // Set the new one
+                clickedPolygonId[type] = id;
                 map.setFeatureState(
-                    { source: type, id: clickedPolygonId[type] },
+                    { source: type, id: id},
                     { clicked: true }
                 );
+                clusterMarkers[type][id]._element.style.zIndex = 100;
+
+                // If we're clicking on the same area as before, hide the overlay
+                if (document.getElementById('area-info-overlay').getAttribute('data-visible') === 'true'
+                    && document.getElementById('area-info-id').innerText === e.features[0].id.toString()
+                    && document.getElementById('area-info-type').innerText === type
+                )
+                {
+                    document.getElementById('area-info-close-button').click()
+                }
+                else {
+                    triggerAreaOverlay(e.features[0].properties, type);
+                }
             }
 
-            triggerAreaOverlay(e.features[0].properties, type)
         });
 
     });
@@ -386,7 +405,6 @@ function resetAll() {
     const filterButtonsMRCs = document.getElementById(selectAllMRCs.getAttribute('data-target-id'));
     const filterButtonsSCs = document.getElementById(selectAllSCs.getAttribute('data-target-id'));
 
-    
     if (clusterBy === 'mrc') {
         // Resetting any SCs selected 
         polygonsDisplayed['sc'].length = 0;
@@ -527,8 +545,18 @@ async function loadDataLayers() {
             (layer) => {
                 map.getLayer(layer) && map.removeLayer(layer);
             }
-        )
+        );
         
+        ['mrc', 'sc'].forEach((type) => {
+            if (clickedPolygonId[type] !== null) {
+                map.setFeatureState(
+                    { source: type, id: clickedPolygonId[type] },
+                    { clicked: false }
+                );
+                clickedPolygonId[type] = null;
+            }
+        });
+
         map.setLayoutProperty('mrc_labels', 'visibility', 'visible');
         
         // Get the HLMs from the server
@@ -713,39 +741,118 @@ document.addEventListener("DOMContentLoaded", () => {
 
 async function triggerAreaOverlay(props, type) {
 
+    const {id, name, bbox_sw, bbox_ne} = props;
+
     // Get the SW and NE points of the bounding box
     const bbox = [
-        JSON.parse(props.bbox_sw),
-        JSON.parse(props.bbox_ne)
+        JSON.parse(bbox_sw),
+        JSON.parse(bbox_ne)
     ]
-    
-    const overlayElement = document.getElementById('info-overlay');
-    // Get the overlay from the server as HTML
-    const overlayHTMLContent = await fetch(
-        "/get_area_info", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", },
-            body: JSON.stringify({ id: props.id, type: type }),
-        })
-        // Text instead of JSON because we're getting the rendered HTML from the server
-        .then(response => response.text());
-    
-    overlayElement.innerHTML = overlayHTMLContent;
+    // Retrieve the data for the area
+    const data = dataLoaded[`hlm_clusters_by_${type}`].find(e => e.id === id);
 
-    // Execute all scripts contained within the HTML
-    var scripts = overlayElement.querySelectorAll("script");
-    for (var i = 0; i < scripts.length; i++) {
-        if (scripts[i].innerText) {
-        eval(scripts[i].innerText);
-    }}
+    const overlayElement = document.getElementById('area-info-overlay');
+    document.getElementById('area-title').innerText = name;
+    document.getElementById('area-info-id').innerText = id;
+    document.getElementById('area-info-type').innerText = type;
+
+    
+    const ivpCountsDwellings = {
+        'A': 0,
+        'B': 0,
+        'C': 0,
+        'D': 0,
+        'E': 0,
+    };
+    const ivpCountsHLMs = {
+        'A': 0,
+        'B': 0,
+        'C': 0,
+        'D': 0,
+        'E': 0,
+    };
+    
+    const allDwellingsPerHLM = []
+
+    data.ivps.forEach(entry => {
+        const {dwel: dwellings, s: ivpCategory} = entry;
+        ivpCountsHLMs[ivpCategory] += 1
+        ivpCountsDwellings[ivpCategory] += dwellings;
+        allDwellingsPerHLM.push(dwellings);
+    })
+
+    const numDwellings = allDwellingsPerHLM.reduce((a,b) => a + b);
+
+    overlayElement.querySelector('#area-num-hlms').innerHTML = `${data.ivps.length.toLocaleString()} HLMs`;
+    overlayElement.querySelector('#area-num-dwellings').innerHTML = `${numDwellings.toLocaleString()} dwellings`;
+
+    const hlmPlotData = {
+        x: ['A', 'B', 'C', 'D', 'E'],
+        y: Object.values(ivpCountsHLMs),
+        marker:{
+          color: ['#198754', '#b1ce3c', '#ffd147', '#E86430', '#de2235']
+        },
+        type: 'bar'
+    };
+    const dwellingsPlotData = {
+        x: ['A', 'B', 'C', 'D', 'E'],
+        y: Object.values(ivpCountsDwellings),
+        marker:{
+          color: ['#198754', '#b1ce3c', '#ffd147', '#E86430', '#de2235']
+        },
+        type: 'bar'
+    };
+    const hlmSizesPlot = {
+        x: allDwellingsPerHLM,
+        type: 'histogram',
+        histfunc: 'count'
+    }
+
+    function genPlotSettings(xTitle, yTitle) {
+        return {
+            xaxis: {
+                title: xTitle,
+                color: 'white'
+            }, 
+            yaxis: {
+                title: yTitle,
+                color: 'white',
+            },
+            margin: {
+                b: 80,
+                l: 60,
+                r: 60,
+                t: 60
+            },
+            paper_bgcolor: 'transparent',
+            plot_bgcolor: 'transparent',
+            font: {
+                color: 'white',
+                family: 'system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue","Noto Sans","Liberation Sans",Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji"'
+            }
+        }
+    }
+
+      
+    Plotly.newPlot('test', [hlmPlotData], {
+        title: "HLMs per disrepair state", 
+        ...genPlotSettings('Disrepair State', 'Count')
+    });
+    Plotly.newPlot('test2', [dwellingsPlotData], {
+        title: "Dwellings per disrepair state", 
+        ...genPlotSettings('Disrepair State', 'Count')
+    });
+    Plotly.newPlot('test3', [hlmSizesPlot], {
+        title: "Dwellings per HLM", 
+        ...genPlotSettings('Dwellings', 'Count')
+    });
+
 
     overlayElement.setAttribute('data-visible', true);
     // Hide the menu if it is currently visible
     document.getElementById('menu-overlay-button').setAttribute('aria-pressed', false);
     document.getElementById('menu-overlay').setAttribute('data-visible', false);
     
-    // if (map.getZoom() >= 16.5) return;
-
     // Quick Maff to position the lot in the middle of screen space
     // left over after showing the overlay. 
     // Semi complicated because we have to give an offset from the center.
@@ -761,7 +868,7 @@ async function triggerAreaOverlay(props, type) {
         (0.5 * remainingWidth) - deltaOffset;
 
     map.fitBounds(bbox, {
-        // padding: {top: 10, bottom:25, left: 15, right: 5},
+        padding: {top: 15, left: 15, bottom: 15, right: 15},
         duration: 1000,
         offset: [-offset + 100, 0]
     });
@@ -962,12 +1069,9 @@ function renderLots(map, lastRenderedBounds, forceRender = false) {
             // console.debug(feature);
             currentlyLoadedLotIds.add(feature.properties.id);
         }
-
-        console.debug(currentlyLoadedLotIds);
     })
     .catch(error => {
-        console.log(error);
-        // TODO: Show a error notification to user
+        console.error(error);
     });
     
     // Update the last rendered bounds

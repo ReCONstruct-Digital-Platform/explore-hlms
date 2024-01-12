@@ -318,20 +318,44 @@ def get_mrc_polygons():
     res = cur.fetchone()[0]
     return res
 
+
 @app.route('/get_area_info', methods=['POST'])
 def get_area_info():
-    conn, cur = _new_conn()
-
-    return '<div>Test</div>'
-
-@app.route("/get_hlms", methods=['GET', 'POST'])
-def get_hlms():
     conn, cur = _new_conn()
 
     data = request.json
     id = data['id']
     type = data['type']
+
+    if type == 'mrc':
+        join_clause = f"JOIN mrcs a ON ST_Intersects(a.geom, h.point)"
+    else:
+        join_clause = f"JOIN sc a ON h.service_center = a.name"
+
+    select = sql.SQL(f"""
+        SELECT a.id, a.name, 
+        json_agg(
+            json_build_object(
+                's', h.disrepair_state,
+                'dwel', h.num_dwellings
+            )
+        ) as ivps
+        FROM {HLM_TABLE} h 
+        {join_clause}
+        WHERE a.id = {id}
+    """)
+
+    cur.execute(select)
+    res = cur.fetchone()[0]
     
+    return render_template('area_info.j2', area=res)
+
+
+
+
+@app.route("/get_hlms", methods=['GET', 'POST'])
+def get_hlms():
+    conn, cur = _new_conn()
 
     select = sql.SQL(f"""
         SELECT json_build_object(

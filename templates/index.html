@@ -10,6 +10,7 @@
     <link href='https://api.mapbox.com/mapbox-gl-js/v3.0.0-beta.1/mapbox-gl.css' rel='stylesheet' />
     <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
     <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" type="text/css">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"></script>
 </head>
 <body>
     <div class="centered">
@@ -26,7 +27,7 @@
         <object id="loader" data="{{ url_for('static', filename='svg/loader.svg') }}" type="image/svg+xml" 
         width="40" height="40" style="display: none;"></object>
 
-        <div id="menu-overlay" class="overlay" data-visible="true">
+        <div id="menu-overlay" class="overlay" data-visible="false">
             <div id="menu" class="pt-[70px] px-3">
                 
                 <div id="menu-clustering" class="text-lg">
@@ -35,15 +36,15 @@
                         <h2 class="text-3xl font-semibold mr-2">
                             Regroupement
                         </h2>
-                        <svg id="cluster-settings-icon-up" class="ms-2 hidden" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down" viewBox="0 0 16 16">
+                        <svg id="cluster-settings-icon-up" class="ms-2" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down" viewBox="0 0 16 16">
                             <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
                         </svg>
-                        <svg id="cluster-settings-icon-down" class="ms-2" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-up" viewBox="0 0 16 16">
+                        <svg id="cluster-settings-icon-down" class="ms-2 hidden" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-up" viewBox="0 0 16 16">
                             <path fill-rule="evenodd" d="M7.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 5.707l-5.646 5.647a.5.5 0 0 1-.708-.708l6-6z"></path>
                         </svg>
                     </div>
 
-                    <div id="cluster-settings" class="ps-2 hidden">
+                    <div id="cluster-settings" class="ps-2">
                         
                         <label class="flex items-center cursor-pointer">
                             <span class="me-2">Regrouper les HLMs</span>
@@ -140,10 +141,10 @@
                         <h2 class="text-3xl font-semibold mr-2">
                             Filtres
                         </h2>
-                        <svg id="filter-settings-icon-up" class="ms-2 hidden" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down" viewBox="0 0 16 16">
+                        <svg id="filter-settings-icon-up" class="ms-2" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down" viewBox="0 0 16 16">
                             <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
                         </svg>
-                        <svg id="filter-settings-icon-down" class="ms-2 " xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-up" viewBox="0 0 16 16">
+                        <svg id="filter-settings-icon-down" class="ms-2 hidden" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-up" viewBox="0 0 16 16">
                             <path fill-rule="evenodd" d="M7.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 5.707l-5.646 5.647a.5.5 0 0 1-.708-.708l6-6z"></path>
                         </svg>
                     </div>
@@ -161,7 +162,7 @@
                                     </svg>
                                 </div>
                             </div>
-                            <div id="mrc-filter-buttons" class="flex flex-wrap  gap-1 mb-2">
+                            <div id="mrc-filter-buttons" class="flex flex-wrap hidden gap-1 mb-2">
                                 <div class="flex w-full items-end mb-2 gap-6">
                                     <div class="ps-1">   
                                         <div class="relative border-b-[1px] border-gray-400">
@@ -294,7 +295,38 @@
         </div>
         
         <div id='info-overlay' class="overlay"></div>
-        <!-- <script src='https://unpkg.com/@turf/turf@6/turf.min.js'></script> -->
+
+        <div id='area-info-overlay' class="overlay">
+            <div id="area-info" class="ps-2">
+                <div id="area-info-id" class="hidden"></div>
+                <div id="area-info-type" class="hidden"></div>
+                <div class="flex items-center justify-between mb-2">
+                    <strong>
+                        <div id="area-title" class="text-xl"></div>
+                    </strong>
+                    <div id="area-info-close-button" class="cursor-pointer">
+                        <svg fill="white" width="24px" height="24px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path fill-rule="evenodd" clip-rule="evenodd" d="M5.29289 5.29289C5.68342 4.90237 6.31658 4.90237 6.70711 5.29289L12 10.5858L17.2929 5.29289C17.6834 4.90237 18.3166 4.90237 18.7071 5.29289C19.0976 5.68342 19.0976 6.31658 18.7071 6.70711L13.4142 12L18.7071 17.2929C19.0976 17.6834 19.0976 18.3166 18.7071 18.7071C18.3166 19.0976 17.6834 19.0976 17.2929 18.7071L12 13.4142L6.70711 18.7071C6.31658 19.0976 5.68342 19.0976 5.29289 18.7071C4.90237 18.3166 4.90237 17.6834 5.29289 17.2929L10.5858 12L5.29289 6.70711C4.90237 6.31658 4.90237 5.68342 5.29289 5.29289Z" fill="##ffffff"/>
+                        </svg>
+                    </div>
+                    <script>
+                        document.getElementById('area-info-close-button').addEventListener('click', (e) => {
+                            document.getElementById('area-info-overlay').setAttribute('data-visible', false);
+                        });
+                    </script>
+                </div>
+                <div class="mb-2">
+                    <div id="area-num-hlms"></div>
+                    <div id="area-num-dwellings"></div>
+                </div>
+                <div class="gap-y-2">
+                    <div id="test"></div>
+                    <div id="test2"></div>
+                    <div id="test3"></div>
+                </div>
+            </div>
+        </div>
+        <script src="https://d3js.org/d3.v6.js"></script>
         <script src="{{ url_for('static', filename='scripts/constants.js') }}"></script>
         <script src="{{ url_for('static', filename='scripts/map.js') }}"
             data-mapbox-token="{{ mapbox_token }}"
