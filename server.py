@@ -288,8 +288,8 @@ def get_mrc_polygons():
             json_agg(
                 json_build_object(
                     'type', 'Feature', 
-                    --- the simplify call reduces the size from 30MB to 3MB 
-                    'geometry', ST_Simplify(sq.geom, 0.00085)::json,
+                    --- the simplify call reduces the size of polygons significantly
+                    'geometry', ST_Simplify(sq.geom, 0.005)::json,
                     'properties', json_build_object(
                         'id', sq.id,
                         'name', sq.name,
