@@ -1,4 +1,3 @@
-
 // Load server data
 const dataset = document.currentScript.dataset;
 
@@ -204,6 +203,10 @@ async function loadBaseLayers() {
 
         // When the user moves their mouse over the layer, we'll update the
         map.on("mousemove", layer, (e) => {
+
+            // We don't want to highlight polygons on hover when we're not clustering
+            if (!document.getElementById('cluster-switch').checked) return;
+
             map.getCanvas().style.cursor = 'pointer';
     
             if (e.features.length > 0) {
@@ -220,19 +223,20 @@ async function loadBaseLayers() {
                     { source: type, id: id},
                     { hover: true }
                 );
-                if (id in clusterMarkers[type]) clusterMarkers[type][id]._element.style.zIndex = 100;
+                if (id in clusterMarkers[type]) clusterMarkers[type][id]._element.style.zIndex = 1;
             }
         });
     
         map.on("mouseleave", layer, () => {
             map.getCanvas().style.cursor = '';
-    
-            if (hoveredPolygonId[type] !== null) {
+            
+            const id = hoveredPolygonId[type];
+            if (id !== null) {
                 map.setFeatureState(
-                    { source: type, id: hoveredPolygonId[type] },
+                    { source: type, id: id},
                     { hover: false }
                 );
-                clusterMarkers[type][hoveredPolygonId[type]]._element.style.zIndex = '';
+                if (id in clusterMarkers[type]) clusterMarkers[type][id]._element.style.zIndex = '';
                 hoveredPolygonId[type] = null;
             }
         });
@@ -260,7 +264,7 @@ async function loadBaseLayers() {
                     { source: type, id: id},
                     { clicked: true }
                 );
-                clusterMarkers[type][id]._element.style.zIndex = 100;
+                clusterMarkers[type][id]._element.style.zIndex = 1;
 
                 // If we're clicking on the same area as before, hide the overlay
                 if (document.getElementById('area-info-overlay').getAttribute('data-visible') === 'true'
@@ -268,6 +272,7 @@ async function loadBaseLayers() {
                     && document.getElementById('area-info-type').innerText === type
                 )
                 {
+                    // Hide the overlay and delete all plots
                     document.getElementById('area-info-close-button').click()
                 }
                 else {
@@ -342,22 +347,18 @@ function createFilterButtons(filterButtonElementId, featuresToFilter, type) {
                 if (toggleClusterMarker) clusterMarkers[type][id]._element.style.visibility = 'hidden';
             }
             
-
             filtersChanged = true;
             filterData.spatialFilter[type] = displayList;
 
-            // Only if we're not clustering
-            if (reloadHLMs) {
-                console.debug('reloading HLMs')
-                loadDataLayers(e);
-            } 
+            // Update the displayed data if not clustering
+            (reloadHLMs) && loadDataLayers(e);
             
             // Update the layer filter to show/hide polygons
             if (displayList.length > 0) {
                 // Filter using the updated service center filter
                 layersToFilter.forEach(l => 
                     {   
-                        console.log(`filtering ${l} `)
+                        console.debug(`filtering ${l} `)
                         map.setFilter(l, ['in', 'id', ...displayList])
                     });
             }
@@ -370,7 +371,6 @@ function createFilterButtons(filterButtonElementId, featuresToFilter, type) {
             // Set feature state to hover
             map.setFeatureState({source: type, id: id}, {hover: true});
             
-            console.debug(clusterMarkers[type][id]._element.style.zIndex)
             // Increase the z-index of the marker so it pops out
             clusterMarkers[type][id]._element.style.zIndex = 100;
         });
@@ -665,8 +665,8 @@ document.addEventListener("DOMContentLoaded", () => {
     mapboxgl.accessToken = dataset.mapboxToken;
     map = new mapboxgl.Map({
         container: 'mapbox',
-        style: 'mapbox://styles/mapbox/light-v11',
-        // style: 'mapbox://styles/mapbox/streets-v12',
+        // style: 'mapbox://styles/mapbox/light-v11',
+        style: 'mapbox://styles/mapbox/streets-v12',
         center: [-72.55424486768713, 46.772195471242426], // starting position [lng, lat]
         zoom: 5.5,
         maxZoom: 18,
@@ -705,13 +705,23 @@ document.addEventListener("DOMContentLoaded", () => {
             map.removeLayer('continent-label');
             map.removeLayer('country-label');
             map.removeLayer('state-label');
-            // map.removeLayer('settlement-subdivision-label');
             map.removeLayer('settlement-major-label');
-            // map.removeLayer('settlement-minor-label');
             map.removeLayer('airport-label');
             map.removeLayer('natural-line-label');
             map.removeLayer('natural-point-label');
         }
+        else if (map.getStyle().name === 'Mapbox Streets') {
+            // Hide some layers in the streets-v12 map to unclutter
+            map.removeLayer('poi-label');
+            map.removeLayer('road-path');
+            map.removeLayer('road-path-bg');
+            map.removeLayer('crosswalks');
+            map.removeLayer('road-oneway-arrow-blue');
+            map.removeLayer('road-oneway-arrow-white');
+            map.removeLayer('road-number-shield');
+            map.removeLayer('road-exit-shield');
+        }
+
         // Load layers that we'll always need
         await loadBaseLayers();
         // Load data depending on current clustering and filter settings
@@ -784,7 +794,15 @@ async function triggerAreaOverlay(props, type) {
     const numDwellings = allDwellingsPerHLM.reduce((a,b) => a + b);
 
     overlayElement.querySelector('#area-num-hlms').innerHTML = `${data.ivps.length.toLocaleString()} HLMs`;
-    overlayElement.querySelector('#area-num-dwellings').innerHTML = `${numDwellings.toLocaleString()} dwellings`;
+    overlayElement.querySelector('#area-num-dwellings').innerHTML = `${numDwellings.toLocaleString()} habitations`;
+    overlayElement.querySelector('#area-ivp-link').innerHTML = `<a target="_blank" class="text-blue-500 border-b-1 border-blue-500 flex items-center"
+    href="http://www.habitation.gouv.qc.ca/fileadmin/internet/documents/partenaires/guides/guide-immeuble-supplement1-section02.pdf#page=14">
+    Information sur les indices d'état  
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="ms-2" viewBox="0 0 16 16">
+    <path fill-rule="evenodd" d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5"/>
+    <path fill-rule="evenodd" d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0z"/>
+    </svg>
+</a>`;
 
     const hlmPlotData = {
         x: ['A', 'B', 'C', 'D', 'E'],
@@ -833,18 +851,18 @@ async function triggerAreaOverlay(props, type) {
         }
     }
 
-      
-    Plotly.newPlot('test', [hlmPlotData], {
-        title: "HLMs per disrepair state", 
-        ...genPlotSettings('Disrepair State', 'Count')
+
+    Plotly.newPlot('hlms-per-disrepair-category', [hlmPlotData], {
+        title: `Nombre d'HLMs par indice d'état`, 
+        ...genPlotSettings("Indice d'État", 'Nombre')
     });
-    Plotly.newPlot('test2', [dwellingsPlotData], {
-        title: "Dwellings per disrepair state", 
-        ...genPlotSettings('Disrepair State', 'Count')
+    Plotly.newPlot('dwellings-per-disrepair-category', [dwellingsPlotData], {
+        title: "Nombre d'habitations par indice d'état", 
+        ...genPlotSettings("Indice d'État", 'Nombre')
     });
-    Plotly.newPlot('test3', [hlmSizesPlot], {
-        title: "Dwellings per HLM", 
-        ...genPlotSettings('Dwellings', 'Count')
+    Plotly.newPlot('dwellings-per-hlms', [hlmSizesPlot], {
+        title: "Nombre d'habitations par HLM", 
+        ...genPlotSettings("Habitations", 'Nombre')
     });
 
 

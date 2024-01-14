@@ -9,8 +9,6 @@ from flask import Flask, render_template, request
 
 app = Flask(__name__)
 
-IMG_OUTPUT_DIR = 'screenshots'
-
 load_dotenv(".env")
 
 DB_USER = os.getenv('DB_USER')
@@ -393,6 +391,9 @@ def get_hlms():
 
         # Process the spatial filters
         mrc_and_sc_filter_parts = []
+
+        print(mrc_ids)
+        print(sc_ids)
 
         # If both sets are empty - we should show NO data
         if not mrc_ids and not sc_ids:

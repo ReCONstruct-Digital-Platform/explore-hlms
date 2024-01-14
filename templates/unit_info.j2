@@ -30,10 +30,10 @@
         {% endif %}
     </div>
 
-    <div id="lot-characteristics" class="info-overlay-section">
-        <div class="unit-info-subsection-header d-flex align-items-center">
+    <div id="lot-characteristics" class="mt-1">
+        <div class="flex items-center font-sm">
             Caractéristiques du Terrain
-            <a class="btn info-icon pb-2 ps-2" type="button" target="_blank" 
+            <a class="ps-2" type="button" target="_blank" 
                 href="https://www.donneesquebec.ca/recherche/dataset/061c8cb7-ca4e-45be-a990-61fce7e7d2dc/resource/6f2599be-e49d-4b9a-8702-b12ad0f56141/download/gui_donneesrolesformatouvert_vf20220627.pdf#page=13">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" class="bi bi-info-circle" viewBox="0 0 16 16">
                     <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
@@ -42,7 +42,7 @@
             </a>
             
         </div>
-        <hr style="margin: 0;">
+        <hr class="m-0">
         <table id="lot-info-table">
             <thead>
                 <tr>
@@ -114,9 +114,9 @@
     </div>
 
     <div id="building-characteristics" class="mt-2">
-        <div id="unit-phys-chars" class="unit-info-subsection-header d-flex align-items-center">
+        <div id="unit-phys-chars" class="unit-info-subsection-header flex items-center">
             Caractéristiques du Bâtiment Principal
-            <a class="btn info-icon pb-2 ps-2" type="button" target="_blank" 
+            <a class="ps-2" type="button" target="_blank" 
                 href="https://www.donneesquebec.ca/recherche/dataset/061c8cb7-ca4e-45be-a990-61fce7e7d2dc/resource/6f2599be-e49d-4b9a-8702-b12ad0f56141/download/gui_donneesrolesformatouvert_vf20220627.pdf#page=16">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" class="bi bi-info-circle" viewBox="0 0 16 16">
                     <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
@@ -124,7 +124,7 @@
                 </svg>
             </a>
         </div>
-        <hr style="margin: 0;">
+        <hr class="m-0">
 
         <table id="lot-building-table">
             <thead>
@@ -223,7 +223,7 @@
         <div class="unit-info-subsection-header">
             HLMs ({{ unit.hlms|length }}) &dash; {{ unit.hlms[0].organism }}, {{ unit.hlms[0].service_center }}
         </div>
-        <hr style="margin: 0;">
+        <hr class="m-0">
 
         <table id="lot-hlms-table">
             <thead>
@@ -232,8 +232,8 @@
                     <th>Addresse</th>
                     <th>Habitations</th>
                     <th>Étages</th>
-                    <th class="d-flex align-items-center">IVP
-                        <a class="btn info-icon pb-2 ps-2" type="button" target="_blank" 
+                    <th class="flex items-center">IVP
+                        <a class="ps-2" type="button" target="_blank" 
                             href="http://www.habitation.gouv.qc.ca/fileadmin/internet/documents/partenaires/guides/guide-immeuble-supplement1-section02.pdf#page=4">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" class="bi bi-info-circle" viewBox="0 0 16 16">
                                 <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>

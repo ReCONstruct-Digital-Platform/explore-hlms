@@ -10,7 +10,6 @@
     <link href='https://api.mapbox.com/mapbox-gl-js/v3.0.0-beta.1/mapbox-gl.css' rel='stylesheet' />
     <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
     <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" type="text/css">
-    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"></script>
 </head>
 <body>
     <div class="centered">
@@ -311,22 +310,32 @@
                     </div>
                     <script>
                         document.getElementById('area-info-close-button').addEventListener('click', (e) => {
+                            // Hide the overlay
                             document.getElementById('area-info-overlay').setAttribute('data-visible', false);
+                            // Delete all plots - we set a timeout to account for the closing transition length
+                            // Otherwise we see the plots disappear before the overlay
+                            setTimeout(() => {
+                                ['hlms-per-disrepair-category', 'dwellings-per-disrepair-category', 'dwellings-per-hlms'].forEach(
+                                    id => document.getElementById(id).innerHTML = ''
+                                )
+                            }, 250);
                         });
                     </script>
                 </div>
                 <div class="mb-2">
                     <div id="area-num-hlms"></div>
                     <div id="area-num-dwellings"></div>
+                    <div id="area-ivp-link"></div>
                 </div>
                 <div class="gap-y-2">
-                    <div id="test"></div>
-                    <div id="test2"></div>
-                    <div id="test3"></div>
+                    <div id="hlms-per-disrepair-category"></div>
+                    <div id="dwellings-per-disrepair-category"></div>
+                    <div id="dwellings-per-hlms"></div>
                 </div>
             </div>
         </div>
-        <script src="https://d3js.org/d3.v6.js"></script>
+        
+        <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"></script>
         <script src="{{ url_for('static', filename='scripts/constants.js') }}"></script>
         <script src="{{ url_for('static', filename='scripts/map.js') }}"
             data-mapbox-token="{{ mapbox_token }}"

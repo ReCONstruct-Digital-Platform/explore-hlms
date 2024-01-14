@@ -102,14 +102,16 @@ function selectAllClickHandler(e) {
         });
     }
 
+    filterData.spatialFilter[type] = displayList;
+
     // Only if we're not clustering
     if (reloadHLMs) {
         filtersChanged = true;
-        filterData.spatialFilter[type] = displayList;
+        // filterData.spatialFilter[type] = displayList;
         loadDataLayers(e);
     } 
     
-    console.debug(`should display ${type}`, displayList);
+    // console.debug(`should display ${type}`, displayList);
 
     // Update the layer filter to show/hide polygons
     if (displayList.length > 0) {
