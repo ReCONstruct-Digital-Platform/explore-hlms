@@ -7,9 +7,9 @@ The live version can be accessed at [https://hlms-lhovon.pythonanywhere.com/](ht
 
 The project uses Mapbox for the interactive map, a simple flask server and a PostGIS database to serve data and perform any geographic operations.
 
-![Screenshot 1](assets\screenshot1.jpg)
-![Screenshot 2](assets\screenshot2.jpg)
-![Screenshot 3](assets\screenshot3.jpg)
+![Screenshot 1](assets/screenshot1.jpg)
+![Screenshot 2](assets/screenshot2.jpg)
+![Screenshot 3](assets/screenshot3.jpg)
 
 # Data
 This project gets its data from a PostGIS database. 
