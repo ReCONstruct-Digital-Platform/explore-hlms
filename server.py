@@ -380,7 +380,6 @@ def get_hlms():
         disrepair_categories = data['filter']['disrepairCategories']
         mrc_ids = set(data['filter']['spatialFilter']['mrc'])
         sc_ids = set(data['filter']['spatialFilter']['sc'])
-        # join_clause = None
         join_clause_parts = []
         
         where_clause_parts = []
@@ -391,9 +390,6 @@ def get_hlms():
 
         # Process the spatial filters
         mrc_and_sc_filter_parts = []
-
-        print(mrc_ids)
-        print(sc_ids)
 
         # If both sets are empty - we should show NO data
         if not mrc_ids and not sc_ids:
@@ -447,7 +443,6 @@ def get_hlms():
 @app.route("/get_lot", methods=['POST'])
 def getLotAtPosition():
     data = request.json
-    print(data)
     _, cur = _new_conn()
 
     cur.execute(f"""
