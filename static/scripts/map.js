@@ -524,13 +524,10 @@ async function loadDataLayers() {
         ['hlm_point', 'hlm_point_labels', 'hlm_addresses_labels'].forEach(
             (layer) => map.getLayer(layer) && map.removeLayer(layer)
         )
-        showLoading();
         map.setLayoutProperty('mrc_labels', 'visibility', 'none');
         await loadAndClusterHLMs(clusterBy);
-        hideLoading();
     }
     else {
-        showLoading();
         // Reset all existing cluster markers
         Object.values(clusterMarkers).forEach(cm => Object.values(cm).forEach(m => m.remove()));
         // Remove all cluster sources
@@ -642,9 +639,6 @@ async function loadDataLayers() {
         map.on("mouseleave", "hlm_point", () => {
             map.getCanvas().style.cursor = "";
         });
-        
-        hideLoading();
-
     }
 
     renderLots(map, lastRenderedBounds);
@@ -698,6 +692,8 @@ document.addEventListener("DOMContentLoaded", () => {
     
 
     map.on('load', async () => {
+        showLoading();
+
         // Hide some layers to unclutter
         if (map.getStyle().name === 'Mapbox Light') {
             map.removeLayer('poi-label');
@@ -726,6 +722,8 @@ document.addEventListener("DOMContentLoaded", () => {
         await loadBaseLayers();
         // Load data depending on current clustering and filter settings
         await loadDataLayers();
+        
+        hideLoading();
     });
     
 
