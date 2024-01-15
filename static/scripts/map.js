@@ -520,14 +520,19 @@ async function loadDataLayers() {
     const clusterBy = document.querySelector('input[name="cluster-by"]:checked').value;
 
     if (cluster) {
+        showLoading();
         // Remove the individual HLM layers
         ['hlm_point', 'hlm_point_labels', 'hlm_addresses_labels'].forEach(
             (layer) => map.getLayer(layer) && map.removeLayer(layer)
         )
         map.setLayoutProperty('mrc_labels', 'visibility', 'none');
         await loadAndClusterHLMs(clusterBy);
+        hideLoading();
     }
     else {
+
+        showLoading();
+
         // Reset all existing cluster markers
         Object.values(clusterMarkers).forEach(cm => Object.values(cm).forEach(m => m.remove()));
         // Remove all cluster sources
@@ -639,6 +644,7 @@ async function loadDataLayers() {
         map.on("mouseleave", "hlm_point", () => {
             map.getCanvas().style.cursor = "";
         });
+        hideLoading();
     }
 
     renderLots(map, lastRenderedBounds);
