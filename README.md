@@ -5,16 +5,35 @@ An interactive map visualization of the HLMs in Québec. Available in French onl
 
 The live version can be accessed at [https://hlms-lhovon.pythonanywhere.com/](https://hlms-lhovon.pythonanywhere.com/)
 
-The project uses Mapbox for the interactive map, a simple flask server and a PostGIS database to serve data and perform any geographic operations.
-
 ![Screenshot 1](assets/screenshot1.jpg)
 ![Screenshot 2](assets/screenshot2.jpg)
 ![Screenshot 3](assets/screenshot3.jpg)
 
-# Data
-This project gets its data from a PostGIS database. 
 
-You can download a dump of the database [here](https://f005.backblazeb2.com/file/bit-data-public/exploredb_20240114.sql), which will be much more time efficient. You will need to download PostgreSQL and the PostGIS extension and create a database called `bitdb4` which you can rename after filling it.
+The project uses Mapbox for the interactive map, a simple flask server and a PostGIS database to serve data and perform any geographic operations.
+
+Note: you will need a [Mapbox API key](https://docs.mapbox.com/help/getting-started/access-tokens/) - the free plan provides all that is needed
+
+# Installation
+
+```bash
+# Create a new virtual env
+python -m venv .venv
+# Activate the virtual env
+.venv\Scripts\activate # (windows)
+source .venv/bin/activate # (linux/mac)
+# Install project dependencies
+pip install -r requirements.txt
+# Copy the example env file
+cp .env.example .env
+```
+
+Now fill in the `.env` file with you DB connection values (more on setting up DB below), Mapbox API key.
+
+# Data
+This project gets its data from a PostGIS database. You need to download and install [PostgreSQL](https://www.postgresql.org/download/) and the [PostGIS extension](https://postgis.net/documentation/getting_started/).
+
+You can download a dump of the database [here](https://f005.backblazeb2.com/file/bit-data-public/exploredb_20240114.sql), which will be much more time efficient. You will need to create a new database called `bitdb4` which you can rename after filling.
 
 Alternatively, you can re-create the database from scratch by following the instructions in the [BIT project's README](https://github.com/ReCONstruct-Digital-Platform/Building-Identification-Tool) and the additional instructions that follow. The dump only contains the necessary data for this project, whereas the BIT DB has additional tables which could be used to extend this project.
 
@@ -113,6 +132,12 @@ update sc set name = 'CS Habitat Métis Nord (HMN)' where id = 1;
 
 
 # Development Notes
+
+## Tailwind 
+If developing, download [TailwindCSS](https://tailwindcss.com/docs/installation) and run the processor to automatically regenerate the CSS file.
+```bash
+npx tailwindcss -i ./static/input.css -o ./static/styles.css --watch
+```
 
 ## Clustering
 We don't use mapbox's clustering feature anymore but instead cluster the data ourselves on the server and return single points.

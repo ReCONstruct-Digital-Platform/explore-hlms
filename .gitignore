@@ -2,7 +2,7 @@
 notes/
 .*rc
 .venv/
-
+output/
 __pycache__/
 .env
-output/
+data/
