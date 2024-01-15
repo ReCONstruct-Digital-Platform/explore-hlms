@@ -64,10 +64,12 @@ delete from mrcs where gid in (2,3,4,31,10,11,12,13,14,32,15,16,33,34,17,18,19,2
 ```
 
 Next, some MRCs have mulitple disjoint entries - let's unite them into a single one with a unified geometry.
- Caniapiscau                 |     4 | {6,7,8,9}
- Lac-Saint-Jean-Est          |     2 | {59,61}
- Le Golfe-du-Saint-Laurent   |     2 | {147,148}
- Minganie                    |     2 | {145,146}
+```
+Caniapiscau                 |     4 | {6,7,8,9}
+Lac-Saint-Jean-Est          |     2 | {59,61}
+Le Golfe-du-Saint-Laurent   |     2 | {147,148}
+Minganie                    |     2 | {145,146}
+```
 
 
 We will insert new entries with unified polygons, keeping the first value of the name and other fields. We recalculate the area and perimeter for the new entries since the geometries are different. Note that we take the opportunity to simplify the geometries as well - this reduces the data size significantly and thus load times. 
