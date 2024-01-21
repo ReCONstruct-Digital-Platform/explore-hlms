@@ -57,6 +57,12 @@ def index():
         mapbox_token=MAPBOX_TOKEN
     )
 
+@app.route('/langdata', methods=['GET'])
+def get_lang():
+    """Returns the application text for the chosen language"""
+    # load appropriate translation from a file
+    return "test"
+
 
 @app.route("/test", methods=['GET'])
 def test2():
