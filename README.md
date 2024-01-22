@@ -162,3 +162,10 @@ In the default case where we want all data - when either MRC or SC list is full 
 A big where clause checking for inclusion in the two lists would be slow!
 We join the mrcs and sc tables as needed to optimize query completion time - joining on both tables singificantly impacts query time! 
 
+## I18n/Translation
+
+Dynamic translation between french and english is achieved through different means based on the source of the text.
+
+For static text within the main HTML template, we identify all translatable elements with a `lang` attribute on the ancestor and a `data-key` attribute on the text element. Javascript code will run and lookup the trabslation in the `langdata` object for the selected locale.
+
+For server generated text, we do a similar thing on the server, looking up the translation of each string in a dictionary.
