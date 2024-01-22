@@ -36,62 +36,6 @@ const interpolate = (x, y, a) => {
 }
 
 
-function createSVGHistograms(data) {
-    const {id, name, ivps} = data;
-
-    const ivpCountsDwellings = {
-        'A': 0,
-        'B': 0,
-        'C': 0,
-        'D': 0,
-        'E': 0,
-    };
-    const ivpCountsHLMs = {
-        'A': 0,
-        'B': 0,
-        'C': 0,
-        'D': 0,
-        'E': 0,
-    };
-    
-    ivps.forEach(entry => {
-        const {dwel: dwellings, s: ivpCategory} = entry;
-        ivpCountsHLMs[ivpCategory] += 1
-        ivpCountsDwellings[ivpCategory] += dwellings;
-    })
-    const countsHLMs = Object.values(ivpCountsHLMs);
-    const totalHLMs = ivps.length;
-    const countsDwellings = Object.values(ivpCountsDwellings);
-    const totalDwellings = countsDwellings.reduce((a,b) => a + b);
-
-    // Adjust the box width based on the name length
-    const boxWidth = Math.max(name.length * 7 + 25, 125);
-    const boxHeight = 50;
-    
-
-    let histogramHLMs = `
-    <svg viewBox="0 0 ${boxWidth} ${boxHeight}" width="${boxWidth}" height="${boxHeight}">
-    <rect width="${boxWidth}" height="${boxHeight}" x="0" y="0" fill="white" style="opacity: .75;" />`
-
-    histogramHLMs += (clusterValue === 'hlms') ? ` HLMs</text>` : ` habitations </text>`;
-    
-    let xOffset = 5;
-    const maxBarHeight = 50;
-
-    counts.forEach((count, i) => {
-        const frac = count / total;
-        const subW = Math.ceil(maxBarHeight * frac);
-        histogramHLMs += `<rect width="${subW}" height="12" x="${xOffset}" y="34" fill="${ivpColors[i]}" />`
-        xOffset += subW;
-    });
-
-    histogramHLMs += `</text></svg>`;
-
-    const el = document.createElement("div");
-    el.innerHTML = histogramHLMs;
-    return el;
-
-}
 
 
 /** 
@@ -126,12 +70,15 @@ function createClusterBoxElement(name, ivps, clusterValue) {
     const boxHeight = 50;
     
     let html = `
-    <svg viewBox="0 0 ${boxWidth} ${boxHeight}" width="${boxWidth}" height="${boxHeight}">
+    <svg viewBox="0 0 ${boxWidth} ${boxHeight}" width="${boxWidth}" height="${boxHeight}" lang='fr'>
     <rect width="${boxWidth}" height="${boxHeight}" x="0" y="0" fill="white" style="opacity: .75;" />
     <text font-size="15" text-fill="black" text-anchor="start" x="5" y='14'>${name}</text>
-    <text font-size="14" text-fill="black" text-anchor="start" x='5' y='30'>${total.toLocaleString()}`
-
-    html += (clusterValue === 'hlms') ? ` HLMs</text>` : ` habitations </text>`;
+    <text font-size="14" text-fill="black" text-anchor="start" x='5' y='30'>
+        <tspan>${total.toLocaleString()}</tspan>
+        <tspan data-key='cluster-marker-${clusterValue}'>
+    `
+    html += (clusterValue === 'hlms') ? ` HLMs</tspan>` : ` habitations</tspan>`;
+    html += `</text>`
     
     let xOffset = 5;
     const barWidth = boxWidth - 13;
@@ -143,7 +90,7 @@ function createClusterBoxElement(name, ivps, clusterValue) {
         xOffset += subW;
     });
 
-    html += `</text></svg>`;
+    html += `</svg>`;
 
     const el = document.createElement("div");
     el.innerHTML = html;

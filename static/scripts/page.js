@@ -41,7 +41,9 @@ function setUpText() {
                 el.textContent = langdata["languages"][locale]["strings"][key];
             }
         })
-    })
+    });
+
+    if (Object.keys(currentAreaPlotData).length) regeneratePlots();
 }
 
 function setUpLanguageSelect() {
@@ -283,6 +285,38 @@ function setUpMenuButton() {
     });
 }
 
+function closeAreaInfo() {
+    // Hide the overlay
+    document.getElementById('area-info-overlay').setAttribute('data-visible', false);
+    // Delete all plots - we set a timeout to account for the closing transition length
+    // Otherwise we see the plots disappear before the overlay
+    setTimeout(() => {
+        ['hlms-per-disrepair-category', 'dwellings-per-disrepair-category', 'dwellings-per-hlms'].forEach(
+            id => document.getElementById(id).innerHTML = ''
+            )
+        }, 250);
+}
+
+function setUpCloseAreaInfoButton() {
+    document.getElementById('area-info-close-button').addEventListener('click', closeAreaInfo);
+}
+function setUpCloseOverlayOnEscapeKey() {
+
+    document.addEventListener('keyup', (e) => {
+        console.log(e);
+        e.stopPropagation();
+        if (e.key !== 'Escape') return;
+        // hide any visible overlay
+        document.getElementById('info-overlay').setAttribute('data-visible', false);
+        if (clickedLotId !== null) {
+            map.setFeatureState(
+                { source: "lots", id: clickedLotId },
+                { clicked: false }
+                );
+            }
+        closeAreaInfo();
+    })
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     setUpText();
@@ -295,4 +329,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setUpMRCFilters();
     setUpSCFilters();
     setUpSearchFilters();
+    setUpCloseAreaInfoButton();
+    setUpCloseOverlayOnEscapeKey();
 })

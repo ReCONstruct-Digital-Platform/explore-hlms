@@ -26,13 +26,15 @@
     </div>
     <div>
         {% if unit.num_adr_sup %}
-        <small>(plusieurs addresses)</small>
+        <small>(multiple addresses)</small>
         {% endif %}
     </div>
 
     <div id="lot-characteristics" class="mt-1">
         <div class="flex items-center font-sm">
-            Caractéristiques du Terrain
+            <span>
+                Lot characteristics
+            </span>
             <a class="ps-2" type="button" target="_blank" 
                 href="https://www.donneesquebec.ca/recherche/dataset/061c8cb7-ca4e-45be-a990-61fce7e7d2dc/resource/6f2599be-e49d-4b9a-8702-b12ad0f56141/download/gui_donneesrolesformatouvert_vf20220627.pdf#page=13">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" class="bi bi-info-circle" viewBox="0 0 16 16">
@@ -47,15 +49,15 @@
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Superficie</th>
-                    <th>Mesure Frontale</th>
-                    <th>Type Proprio</th>
-                    <th>Statut Proprio</th>
+                    <th>Area</th>
+                    <th>Linear dim.</th>
+                    <th>Owner type</th>
+                    <th>Owner status</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td>{{unit.lot_number}} </td>
+                    <td>{{unit.lot_number}}</td>
                     <td>
                     {% if unit.lot_area %}
                         {{unit.lot_area}} m<sup>2</sup>
@@ -70,36 +72,9 @@
                         &mdash;
                     {%endif%}
                     </td>
-                    <td>
-                    {% if unit.owner_type == 'moral' %}
-                        Personne morale
-                    {% else %}
-                        Persone Physique
-                    {% endif %}
-                    </td>
-                    <td>
-                    {% if unit.owner_status == 'landowner' %}
-                        Propriétaire du terrain
-                    {% elif unit.owner_status == 'lessor'%}
-                        Emphytéote
-                    {% elif unit.owner_status == 'condo owner' %}
-                        Propriétaire d'une copropriété divise
-                    {% elif unit.owner_status == 'lessor of public land'%}
-                        Locataire d'un terrain de l'État
-                    {% elif unit.owner_status == 'tenant of tax-exempt building' %}
-                        Occupant d'un immeuble exempté de taxes
-                    {% elif unit.owner_status == 'building owner on public land' %}
-                        Propriétaire d'un bâtiment sur un terrain public
-                    {% elif unit.owner_status == 'trailer building owner' %}
-                        Propriétaire d'une roulotte devenue immeuble
-                    {% elif unit.owner_status == 'undivided co-owner' %}
-                        Copropriétaire indivis par déclaration publiée
-                    {% elif unit.owner_status == 'other' %}
-                        Autre.
-                    {% else %}
-                        &mdash;
-                    {%endif%}
-                    </td>
+
+                    <td>{{unit.owner_type}}</td>
+                    <td>{{unit.owner_status}}</td>
                 </tr>
             </tbody>
         </table>
@@ -115,7 +90,7 @@
 
     <div id="building-characteristics" class="mt-2">
         <div id="unit-phys-chars" class="unit-info-subsection-header flex items-center">
-            Caractéristiques du Bâtiment Principal
+            Main building characteristics
             <a class="ps-2" type="button" target="_blank" 
                 href="https://www.donneesquebec.ca/recherche/dataset/061c8cb7-ca4e-45be-a990-61fce7e7d2dc/resource/6f2599be-e49d-4b9a-8702-b12ad0f56141/download/gui_donneesrolesformatouvert_vf20220627.pdf#page=16">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" class="bi bi-info-circle" viewBox="0 0 16 16">
@@ -129,12 +104,12 @@
         <table id="lot-building-table">
             <thead>
                 <tr>
-                    <th>Habitations</th>
-                    <th>Max. Étages</th>
-                    <th>Année Constr.</th>
-                    <th>Aire d'Étages</th>
-                    <th>Lien Physique</th>
-                    <th>Type Constr.</th>
+                    <th>Dwellings</th>
+                    <th>Max. floors</th>
+                    <th>Const. year</th>
+                    <th>Floor area</th>
+                    <th>Physical link</th>
+                    <th>Const. type</th>
                 </tr>
             </thead>
             <tbody>
@@ -174,36 +149,8 @@
                     {% endif %}
                     </td>
 
-                    <td>
-                    {% if unit.phys_link == 'single-detached' %}
-                        Détaché
-                    {% elif unit.phys_link == 'semi-detached' %}
-                        Jumelé
-                    {% elif unit.phys_link == 'row house (one side)' %}
-                        En rangée 1 côté
-                    {% elif unit.phys_link == 'row house' %}
-                        En rangée plus de 1 côté
-                    {% elif unit.phys_link == 'integrated' %}
-                        Intégré
-                    {% else %}
-                        &mdash;
-                    {% endif %}
-                    </td>
-                    <td>
-                        {% if unit.const_type == 'single-storey' %}
-                            De plain-pied
-                        {% elif unit.const_type == 'staggered-level' %}
-                            À niveaux décalés
-                        {% elif unit.const_type == 'modular prefab' %}
-                            Unimodulaire
-                        {% elif unit.const_type == 'attic' %}
-                            À étage mansardé
-                        {% elif unit.const_type == 'full-storey' %}
-                            À étages entiers
-                        {% else %}
-                        &mdash;
-                        {% endif %}
-                    </td>
+                    <td>{{unit.phys_link }}</td>
+                    <td>{{unit.const_type}}</td>
                 </tr>
             </tbody>
         </table>
@@ -229,9 +176,9 @@
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Addresse</th>
-                    <th>Habitations</th>
-                    <th>Étages</th>
+                    <th>Address</th>
+                    <th>Dwellings</th>
+                    <th>Floors</th>
                     <th class="flex items-center">IVP
                         <a class="ps-2" type="button" target="_blank" 
                             href="http://www.habitation.gouv.qc.ca/fileadmin/internet/documents/partenaires/guides/guide-immeuble-supplement1-section02.pdf#page=4">
@@ -241,7 +188,7 @@
                             </svg>
                         </a>
                     </th>
-                    <th>Catégorie</th>
+                    <th>Category</th>
                 </tr>
             </thead>
             <tbody>

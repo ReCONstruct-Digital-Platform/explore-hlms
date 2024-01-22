@@ -138,7 +138,7 @@
                                     <input id="radio-cluster-value-hlms" type="radio" value="hlms" name="cluster-value" 
                                     class="h-4 w-4 peer border-blue-600 text-blue-600 focus:ring-blue-600 focus:ring-2 cursor-pointer
                                     disabled:text-gray-500 disabled:bg-gray-500 disabled:border-gray-500">
-                                    <label for="radio-cluster-value-hlms" 
+                                    <label for="radio-cluster-value-hlms" data-key="cluster-settings-value-hlms" 
                                         class="block ms-2 cursor-pointer peer-disabled:text-gray-400">
                                         Nombre de HLMs
                                     </label>
@@ -331,24 +331,26 @@
                             <path fill-rule="evenodd" clip-rule="evenodd" d="M5.29289 5.29289C5.68342 4.90237 6.31658 4.90237 6.70711 5.29289L12 10.5858L17.2929 5.29289C17.6834 4.90237 18.3166 4.90237 18.7071 5.29289C19.0976 5.68342 19.0976 6.31658 18.7071 6.70711L13.4142 12L18.7071 17.2929C19.0976 17.6834 19.0976 18.3166 18.7071 18.7071C18.3166 19.0976 17.6834 19.0976 17.2929 18.7071L12 13.4142L6.70711 18.7071C6.31658 19.0976 5.68342 19.0976 5.29289 18.7071C4.90237 18.3166 4.90237 17.6834 5.29289 17.2929L10.5858 12L5.29289 6.70711C4.90237 6.31658 4.90237 5.68342 5.29289 5.29289Z" fill="##ffffff"/>
                         </svg>
                     </div>
-                    <script>
-                        document.getElementById('area-info-close-button').addEventListener('click', (e) => {
-                            // Hide the overlay
-                            document.getElementById('area-info-overlay').setAttribute('data-visible', false);
-                            // Delete all plots - we set a timeout to account for the closing transition length
-                            // Otherwise we see the plots disappear before the overlay
-                            setTimeout(() => {
-                                ['hlms-per-disrepair-category', 'dwellings-per-disrepair-category', 'dwellings-per-hlms'].forEach(
-                                    id => document.getElementById(id).innerHTML = ''
-                                )
-                            }, 250);
-                        });
-                    </script>
                 </div>
-                <div class="mb-2">
-                    <div id="area-num-hlms"></div>
-                    <div id="area-num-dwellings"></div>
-                    <div id="area-ivp-link"></div>
+                <div class="mb-2" lang="fr">
+                    <div>
+                        <span id="area-num-hlms" data-key="area-num-hlms"></span>
+                        <span id="area-num-hlms-label" data-key="area-num-hlms-label"></span>
+                    </div>
+                    <div>
+                        <span id="area-num-dwellings" data-key="area-num-dwellings"></span>
+                        <span id="area-num-dwellings-label" data-key="area-num-dwellings-label"></span>
+                    </div>
+                    <div id="area-ivp-link">
+                        <a target="_blank" class="text-blue-500 border-b-1 border-blue-500 flex items-center"
+                        href="http://www.habitation.gouv.qc.ca/fileadmin/internet/documents/partenaires/guides/guide-immeuble-supplement1-section02.pdf#page=14">
+                            <span id='area-ivp-link-text' data-key='area-ivp-link-text'>Information sur les indices d'état</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="ms-2" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd" d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5"/>
+                                <path fill-rule="evenodd" d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0z"/>
+                            </svg>
+                        </a>
+                    </div>
                 </div>
                 <div class="gap-y-2">
                     <div id="hlms-per-disrepair-category"></div>
