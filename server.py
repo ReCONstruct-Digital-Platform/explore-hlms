@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import IPython
 import psycopg2
 import psycopg2.extras
@@ -6,6 +7,8 @@ import psycopg2.extras
 from psycopg2 import sql
 from dotenv import load_dotenv
 from flask import Flask, render_template, request
+
+from constants import UNIT_INFO_STRINGS
 
 app = Flask(__name__)
 
@@ -56,6 +59,12 @@ def index():
         dwellings_max = res[3] + 1,
         mapbox_token=MAPBOX_TOKEN
     )
+
+@app.route('/langdata', methods=['GET'])
+def get_lang():
+    """Returns the application text for the chosen language"""
+    # load appropriate translation from a file
+    return "test"
 
 
 @app.route("/test", methods=['GET'])
@@ -604,10 +613,11 @@ def get_lots():
 @app.route('/lot_info', methods=['POST'])
 def lot_info():
     data = request.json
-    # print(data)
+    print(data)
     _, cur = _new_conn()
 
     eval_unit_id = data['id']
+    locale = data['locale']
     
     cur.execute(f"""
         select json_build_object(
@@ -629,7 +639,7 @@ def lot_info():
             'building_value', e.building_value,
             'value', e.value,
             'prev_value', e.prev_value,
-            'owner_date', TO_CHAR(e.owner_date, 'dd/mm/yyyy'),
+            'owner_date', TO_CHAR(e.owner_date, 'yyyy/mm/dd'),
             'owner_type', e.owner_type,
             'owner_status', e.owner_status,
             'hlms', json_agg(
@@ -650,9 +660,39 @@ def lot_info():
         join {HLM_TABLE} hlm on hlm.eval_unit_id = e.id
         where e.id = %s
         group by e.id, e.address;""", (eval_unit_id,))
-    res = cur.fetchone()[0]
+    unit = cur.fetchone()[0]
 
-    return render_template('unit_info.j2', unit=res)
+    # translate owner_type and status, phys_link, const_type, hlm.category
+    unit = translate_unit_info(unit, locale)
+
+    template = f'unit_info_{locale}.j2'
+
+    if not (Path('templates') / template).exists():
+        return f"Could not find template for locale '{locale}'"
+
+    return render_template(template, unit=unit)
+
+
+
+def translate_unit_info(unit, locale):
+
+    if locale not in UNIT_INFO_STRINGS:
+        return None
+    
+    strings = UNIT_INFO_STRINGS[locale]
+
+    for field in ['owner_type', 'owner_status', 'phys_link', 'const_type']:
+        # Values are None if missing
+        if val := unit[field]:
+            unit[field] = strings[field][val]
+        else:
+            unit[field] = '&mdash;'
+
+    for hlm in unit['hlms']:
+        if val := hlm['category']:
+            hlm['category'] = strings['hlm_category'][val]
+
+    return unit
 
 
 if __name__ == '__main__':

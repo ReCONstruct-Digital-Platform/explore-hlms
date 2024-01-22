@@ -10,6 +10,7 @@
     <link href='https://api.mapbox.com/mapbox-gl-js/v3.0.0-beta.1/mapbox-gl.css' rel='stylesheet' />
     <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
     <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" type="text/css">
+    <script src="{{ url_for('static', filename='langdata.js') }}"></script>
 </head>
 <body>
     <div class="centered">
@@ -26,13 +27,21 @@
         <object id="loader" data="{{ url_for('static', filename='svg/loader.svg') }}" type="image/svg+xml" 
         width="40" height="40" style="display: none;"></object>
 
-        <div id="menu-overlay" class="overlay" data-visible="false">
+        <div class="absolute top-[10px] right-[260px]">
+            <!-- Custom values to match mapbox's search bar -->
+            <select id="lang-select" class="items-center h-[36px] w-fit pt-[5px] shadow-[0_0_10px_2px_rgba(0,0,0,0.1)] bg-white border-0 text-[#757575] text-[15px] leading-[20px] font-semibold rounded-[4px] focus:ring-blue-500 focus:border-blue-500 block">
+                <option selected value="fr">FR</option>
+                <option value="en">EN</option>
+            </select>
+        </div>
+
+        <div id="menu-overlay" class="overlay" data-visible="false" lang="fr">
             <div id="menu" class="pt-[70px] px-3">
                 
                 <div id="menu-clustering" class="text-lg">
 
                     <div id="cluster-settings-header" class="flex items-center border-b-[1px] border-gray-100 mb-2">
-                        <h2 class="text-3xl font-semibold mr-2">
+                        <h2 class="text-3xl font-semibold mr-2" data-key="cluster-settings-header">
                             Regroupement
                         </h2>
                         <svg id="cluster-settings-icon-up" class="ms-2" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down" viewBox="0 0 16 16">
@@ -46,7 +55,7 @@
                     <div id="cluster-settings" class="ps-2">
                         
                         <label class="flex items-center cursor-pointer">
-                            <span class="me-2">Regrouper les HLMs</span>
+                            <span class="me-2" data-key="cluster-settings-switch">Regrouper les HLMs</span>
                             <div class="relative">
                                 <input id="cluster-switch" type="checkbox" value="" class="sr-only peer" checked>
                                 <div class="w-9 h-5 bg-gray-400 rounded-full peer-checked:after:translate-x-full 
@@ -57,14 +66,17 @@
                         </label>
                             
                         <div class="flex flex-col mt-2">
-                            Regrouper par
+                            <div data-key="cluster-settings-cluster-by">
+                                Regrouper par
+                            </div>
+
                             <div class="ms-4 mt-1 text-base">
 
                                 <div class="flex items-center mb-2">
                                     <input checked id="radio-cluster-by-mrc" type="radio" value="mrc" name="cluster-by" 
                                     class="h-4 w-4 peer border-blue-600 text-blue-600 focus:ring-blue-600 focus:ring-2 cursor-pointer
                                     disabled:text-gray-500 disabled:bg-gray-500 disabled:border-gray-500">
-                                    <label for="radio-cluster-by-mrc" 
+                                    <label for="radio-cluster-by-mrc" data-key="cluster-settings-cluster-by-mrc" 
                                         class="block ms-2 cursor-pointer peer-disabled:text-gray-400">
                                         MRC (Municipalité régionale de comté)
                                     </label>
@@ -74,7 +86,7 @@
                                     <input id="radio-cluster-by-sc" type="radio" value="sc" name="cluster-by" 
                                     class="h-4 w-4 peer border-blue-600 text-blue-600 focus:ring-blue-600 focus:ring-2 cursor-pointer
                                     disabled:text-gray-500 disabled:bg-gray-500 disabled:border-gray-500">
-                                    <label for="radio-cluster-by-sc" 
+                                    <label for="radio-cluster-by-sc" data-key="cluster-settings-cluster-by-sc" 
                                         class="block ms-2 cursor-pointer peer-disabled:text-gray-400">
                                         Centre de Service
                                     </label>
@@ -83,13 +95,15 @@
                         </div>
 
                         <div class="flex flex-col mt-2">
-                            Type de marqueur
+                            <div data-key="cluster-settings-marker">
+                                Type de marqueur
+                            </div>
                             <div class="ms-4 mt-1 text-base">
                                 <div class="flex items-center mb-2">
                                     <input  id="cluster-marker-type-pie" type="radio" value="pie" name="cluster-marker-type" 
                                     class="h-4 w-4 peer border-blue-600 text-blue-600 focus:ring-blue-600 focus:ring-2 cursor-pointer
                                     disabled:text-gray-500 disabled:bg-gray-500 disabled:border-gray-500">
-                                    <label for="cluster-marker-type-pie" 
+                                    <label for="cluster-marker-type-pie" data-key="cluster-settings-marker-circular"
                                         class="block ms-2 cursor-pointer peer-disabled:text-gray-400">
                                         Circulaire
                                     </label>
@@ -98,7 +112,7 @@
                                     <input checked id="cluster-marker-type-box" type="radio" value="box" name="cluster-marker-type" 
                                     class="h-4 w-4 peer border-blue-600 text-blue-600 focus:ring-blue-600 focus:ring-2 cursor-pointer
                                     disabled:text-gray-500 disabled:bg-gray-500 disabled:border-gray-500">
-                                    <label for="cluster-marker-type-box" 
+                                    <label for="cluster-marker-type-box" data-key="cluster-settings-marker-rectangular"
                                         class="block ms-2 cursor-pointer peer-disabled:text-gray-400">
                                         Rectangulaire
                                     </label>
@@ -107,13 +121,15 @@
                         </div>
 
                         <div class="flex flex-col mt-2">
-                            Valeurs
+                            <div data-key="cluster-settings-value">
+                                Valeurs
+                            </div>
                             <div class="ms-4 mt-1 text-base">
                                 <div class="flex items-center mb-2">
                                     <input checked id="radio-cluster-value-dwellings" type="radio" value="dwellings" name="cluster-value" 
                                     class="h-4 w-4 peer border-blue-600 text-blue-600 focus:ring-blue-600 focus:ring-2 cursor-pointer
                                     disabled:text-gray-500 disabled:bg-gray-500 disabled:border-gray-500">
-                                    <label for="radio-cluster-value-dwellings" 
+                                    <label for="radio-cluster-value-dwellings" data-key="cluster-settings-value-dwellings" 
                                         class="block ms-2 cursor-pointer peer-disabled:text-gray-400">
                                         Nombre d'habitations
                                     </label>
@@ -122,7 +138,7 @@
                                     <input id="radio-cluster-value-hlms" type="radio" value="hlms" name="cluster-value" 
                                     class="h-4 w-4 peer border-blue-600 text-blue-600 focus:ring-blue-600 focus:ring-2 cursor-pointer
                                     disabled:text-gray-500 disabled:bg-gray-500 disabled:border-gray-500">
-                                    <label for="radio-cluster-value-hlms" 
+                                    <label for="radio-cluster-value-hlms" data-key="cluster-settings-value-hlms" 
                                         class="block ms-2 cursor-pointer peer-disabled:text-gray-400">
                                         Nombre de HLMs
                                     </label>
@@ -137,7 +153,7 @@
                 <div id="menu-filters" class="text-lg">
 
                     <div id="filter-settings-header" class="flex items-center mb-2 border-b-[1px] border-gray-100">
-                        <h2 class="text-3xl font-semibold mr-2">
+                        <h2 class="text-3xl font-semibold mr-2" data-key="filters-header">
                             Filtres
                         </h2>
                         <svg id="filter-settings-icon-up" class="ms-2" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down" viewBox="0 0 16 16">
@@ -152,7 +168,9 @@
                         <div>
                             <div id="mrc-filter" class="flex items-center justify-between w-full border-b-[1px] border-gray-400 mb-2">
                                 <div class="flex items-center">
-                                    MRC
+                                    <div data-key="filters-header-mrc">
+                                        MRC
+                                    </div>
                                     <svg id="mrc-filter-icon-up" class="ms-2" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down" viewBox="0 0 16 16">
                                         <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
                                     </svg>
@@ -170,15 +188,15 @@
                                                     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
                                                 </svg>
                                             </div>
-                                            <input id="search-mrc" type="text" autocomplete="off"
+                                            <input id="search-mrc" type="text" autocomplete="off" 
                                                 class="block py-2 ps-5 w-full bg-transparent border-0 appearance-none
                                                 focus:outline-none focus:ring-0 focus:text-gray-50 peer" 
-                                                placeholder="Search...">
+                                                placeholder="Rechercher...">
                                         </div>
                                     </div>
-                                    <div id="mrc-filter-select-all" data-target-id="mrc-filter-buttons" data-category="mrc" 
+                                    <div id="mrc-filter-select-all" data-target-id="mrc-filter-buttons" data-category="mrc" data-key="filters-select-all"
                                         class="w-fit cursor-pointer text-sm text-blue-200 hover:text-blue-400 pt-1 pb-2 px-1 ms-2 hover:border-blue-200"> 
-                                        Select all
+                                        Tout selectionner
                                     </div>
                                 </div>
                                 <!-- Place holder for all the MRC filter buttons, created in map.js -->
@@ -186,7 +204,9 @@
                         </div>
                         <div>
                             <div id="sc-filter" class="flex items-center border-b-[1px] border-gray-400 mb-2">
-                                Service Center
+                                <div data-key="filters-header-sc">
+                                    Centre de Service
+                                </div>
                                 <svg id="sc-filter-icon-up" class="ms-2" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-down" viewBox="0 0 16 16">
                                     <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
                                 </svg>
@@ -206,11 +226,12 @@
                                             <input id="search-sc" type="text" autocomplete="off"
                                             class="block py-2 ps-5 w-full bg-transparent border-0 appearance-none
                                             focus:outline-none focus:ring-0 focus:text-gray-50 peer" 
-                                                placeholder="Search...">
+                                                placeholder="Rechercher...">
                                         </div>
                                     </div>
-                                    <div id="sc-filter-select-all" data-target-id="sc-filter-buttons" data-category="sc" class="w-fit cursor-pointer text-sm text-blue-200 hover:text-blue-400 pt-1 pb-2 px-1 pe-3 hover:border-blue-200"> 
-                                    Select all
+                                    <div id="sc-filter-select-all" data-target-id="sc-filter-buttons" data-key="filters-select-all"
+                                        data-category="sc" class="w-fit cursor-pointer text-sm text-blue-200 hover:text-blue-400 pt-1 pb-2 px-1 pe-3 hover:border-blue-200"> 
+                                        Tout selectionner
                                     </div>
                                 </div>
                                 <!-- Place holder for all the Serice Center filter buttons, created in map.js -->
@@ -218,7 +239,9 @@
                         </div>
 
                         <div class="flex items-center mb-2">
-                            Indice d'État 
+                            <div data-key="filters-ivp">
+                                Indice d'État 
+                            </div>
                             <a class="pb-2 ps-2 relative top-1" type="button" target="_blank" 
                                 href="http://www.habitation.gouv.qc.ca/fileadmin/internet/documents/partenaires/guides/guide-immeuble-supplement1-section02.pdf#page=14">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" class="bi bi-info-circle" viewBox="0 0 16 16">
@@ -277,7 +300,7 @@
                         
                         </div>
 
-                        <div class="mb-2">
+                        <div class="mb-2" data-key="filters-num-dwellings">
                             Nombre d'Habitations
                         </div>
                         <range-selector 
@@ -308,24 +331,26 @@
                             <path fill-rule="evenodd" clip-rule="evenodd" d="M5.29289 5.29289C5.68342 4.90237 6.31658 4.90237 6.70711 5.29289L12 10.5858L17.2929 5.29289C17.6834 4.90237 18.3166 4.90237 18.7071 5.29289C19.0976 5.68342 19.0976 6.31658 18.7071 6.70711L13.4142 12L18.7071 17.2929C19.0976 17.6834 19.0976 18.3166 18.7071 18.7071C18.3166 19.0976 17.6834 19.0976 17.2929 18.7071L12 13.4142L6.70711 18.7071C6.31658 19.0976 5.68342 19.0976 5.29289 18.7071C4.90237 18.3166 4.90237 17.6834 5.29289 17.2929L10.5858 12L5.29289 6.70711C4.90237 6.31658 4.90237 5.68342 5.29289 5.29289Z" fill="##ffffff"/>
                         </svg>
                     </div>
-                    <script>
-                        document.getElementById('area-info-close-button').addEventListener('click', (e) => {
-                            // Hide the overlay
-                            document.getElementById('area-info-overlay').setAttribute('data-visible', false);
-                            // Delete all plots - we set a timeout to account for the closing transition length
-                            // Otherwise we see the plots disappear before the overlay
-                            setTimeout(() => {
-                                ['hlms-per-disrepair-category', 'dwellings-per-disrepair-category', 'dwellings-per-hlms'].forEach(
-                                    id => document.getElementById(id).innerHTML = ''
-                                )
-                            }, 250);
-                        });
-                    </script>
                 </div>
-                <div class="mb-2">
-                    <div id="area-num-hlms"></div>
-                    <div id="area-num-dwellings"></div>
-                    <div id="area-ivp-link"></div>
+                <div class="mb-2" lang="fr">
+                    <div>
+                        <span id="area-num-hlms" data-key="area-num-hlms"></span>
+                        <span id="area-num-hlms-label" data-key="area-num-hlms-label"></span>
+                    </div>
+                    <div>
+                        <span id="area-num-dwellings" data-key="area-num-dwellings"></span>
+                        <span id="area-num-dwellings-label" data-key="area-num-dwellings-label"></span>
+                    </div>
+                    <div id="area-ivp-link">
+                        <a target="_blank" class="text-blue-500 border-b-1 border-blue-500 flex items-center"
+                        href="http://www.habitation.gouv.qc.ca/fileadmin/internet/documents/partenaires/guides/guide-immeuble-supplement1-section02.pdf#page=14">
+                            <span id='area-ivp-link-text' data-key='area-ivp-link-text'>Information sur les indices d'état</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="ms-2" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd" d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5"/>
+                                <path fill-rule="evenodd" d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0z"/>
+                            </svg>
+                        </a>
+                    </div>
                 </div>
                 <div class="gap-y-2">
                     <div id="hlms-per-disrepair-category"></div>

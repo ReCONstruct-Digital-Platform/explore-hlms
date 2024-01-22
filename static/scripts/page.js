@@ -12,7 +12,45 @@ const filterData = {
 // TODO never check this after setting in updateData
 var lastLoadedFilter = {};
 
+/**
+ * Enable dynamically switching languages
+ * Inspired from https://www.youtube.com/watch?v=OKU08dWK8BA
+ */
+function setUpText() {
+    // Get all elements with a lang attribute
+    const containers = document.querySelectorAll('[lang]');
+    // Get the selected locale from the dropdown
+    const locale = document.getElementById('lang-select').value;
+    console.log(locale);
 
+    // For these ones, we have to change the placeholder value
+    // This one is loaded in by mapbox so we can't add an ID or data attribute to it
+    document.getElementsByClassName('mapboxgl-ctrl-geocoder--input')[0].placeholder = langdata.languages[locale].strings['search-placeholder']; 
+    document.getElementById('search-mrc').placeholder = langdata.languages[locale].strings['filters-search'];
+    document.getElementById('search-sc').placeholder = langdata.languages[locale].strings['filters-search'];
+
+    // For each container element, get 
+    containers.forEach(container => {
+        console.debug(container);
+        container.querySelectorAll('[data-key]').forEach(el => {
+            const key = el.getAttribute('data-key');
+            console.debug(key);
+            console.debug(langdata["languages"][locale]["strings"])
+            if (key) {
+                // apply correct translation
+                el.textContent = langdata["languages"][locale]["strings"][key];
+            }
+        })
+    });
+
+    if (Object.keys(currentAreaPlotData).length) regeneratePlots();
+}
+
+function setUpLanguageSelect() {
+    document.getElementById('lang-select').addEventListener('change', e => {
+        setUpText();
+    })
+}
 
 function setUpSettingsTopCategories() {
     
@@ -247,8 +285,42 @@ function setUpMenuButton() {
     });
 }
 
+function closeAreaInfo() {
+    // Hide the overlay
+    document.getElementById('area-info-overlay').setAttribute('data-visible', false);
+    // Delete all plots - we set a timeout to account for the closing transition length
+    // Otherwise we see the plots disappear before the overlay
+    setTimeout(() => {
+        ['hlms-per-disrepair-category', 'dwellings-per-disrepair-category', 'dwellings-per-hlms'].forEach(
+            id => document.getElementById(id).innerHTML = ''
+            )
+        }, 250);
+}
+
+function setUpCloseAreaInfoButton() {
+    document.getElementById('area-info-close-button').addEventListener('click', closeAreaInfo);
+}
+function setUpCloseOverlayOnEscapeKey() {
+
+    document.addEventListener('keyup', (e) => {
+        console.log(e);
+        e.stopPropagation();
+        if (e.key !== 'Escape') return;
+        // hide any visible overlay
+        document.getElementById('info-overlay').setAttribute('data-visible', false);
+        if (clickedLotId !== null) {
+            map.setFeatureState(
+                { source: "lots", id: clickedLotId },
+                { clicked: false }
+                );
+            }
+        closeAreaInfo();
+    })
+}
 
 document.addEventListener('DOMContentLoaded', () => {
+    setUpText();
+    setUpLanguageSelect();
     setUpSettingsTopCategories();
     setUpMenuButton();
     setUpFilter();
@@ -257,4 +329,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setUpMRCFilters();
     setUpSCFilters();
     setUpSearchFilters();
+    setUpCloseAreaInfoButton();
+    setUpCloseOverlayOnEscapeKey();
 })

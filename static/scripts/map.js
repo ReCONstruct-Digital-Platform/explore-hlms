@@ -462,7 +462,7 @@ async function loadAndClusterHLMs(type) {
     resetAll();
 
     const dataIdKey = `hlm_clusters_by_${type}`
-    const apiEndpoint = `/hlm_clusters_by_${type}`
+    const apiEndpoint = `/${dataIdKey}`
 
     if (filtersChanged || !(dataIdKey in dataLoaded)) 
     {
@@ -753,60 +753,8 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
-async function triggerAreaOverlay(props, type) {
-
-    const {id, name, bbox_sw, bbox_ne} = props;
-
-    // Get the SW and NE points of the bounding box
-    const bbox = [
-        JSON.parse(bbox_sw),
-        JSON.parse(bbox_ne)
-    ]
-    // Retrieve the data for the area
-    const data = dataLoaded[`hlm_clusters_by_${type}`].find(e => e.id === id);
-
-    const overlayElement = document.getElementById('area-info-overlay');
-    document.getElementById('area-title').innerText = name;
-    document.getElementById('area-info-id').innerText = id;
-    document.getElementById('area-info-type').innerText = type;
-
-    
-    const ivpCountsDwellings = {
-        'A': 0,
-        'B': 0,
-        'C': 0,
-        'D': 0,
-        'E': 0,
-    };
-    const ivpCountsHLMs = {
-        'A': 0,
-        'B': 0,
-        'C': 0,
-        'D': 0,
-        'E': 0,
-    };
-    
-    const allDwellingsPerHLM = []
-
-    data.ivps.forEach(entry => {
-        const {dwel: dwellings, s: ivpCategory} = entry;
-        ivpCountsHLMs[ivpCategory] += 1
-        ivpCountsDwellings[ivpCategory] += dwellings;
-        allDwellingsPerHLM.push(dwellings);
-    })
-
-    const numDwellings = allDwellingsPerHLM.reduce((a,b) => a + b);
-
-    overlayElement.querySelector('#area-num-hlms').innerHTML = `${data.ivps.length.toLocaleString()} HLMs`;
-    overlayElement.querySelector('#area-num-dwellings').innerHTML = `${numDwellings.toLocaleString()} habitations`;
-    overlayElement.querySelector('#area-ivp-link').innerHTML = `<a target="_blank" class="text-blue-500 border-b-1 border-blue-500 flex items-center"
-    href="http://www.habitation.gouv.qc.ca/fileadmin/internet/documents/partenaires/guides/guide-immeuble-supplement1-section02.pdf#page=14">
-    Information sur les indices d'état  
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="ms-2" viewBox="0 0 16 16">
-    <path fill-rule="evenodd" d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5"/>
-    <path fill-rule="evenodd" d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0z"/>
-    </svg>
-</a>`;
+function generatePlots(ivpCountsHLMs, ivpCountsDwellings, allDwellingsPerHLM) {
+    const locale = document.getElementById('lang-select').value;
 
     const hlmPlotData = {
         x: ['A', 'B', 'C', 'D', 'E'],
@@ -857,18 +805,88 @@ async function triggerAreaOverlay(props, type) {
 
 
     Plotly.newPlot('hlms-per-disrepair-category', [hlmPlotData], {
-        title: `Nombre d'HLMs par indice d'état`, 
-        ...genPlotSettings("Indice d'État", 'Nombre')
+        title: langdata["languages"][locale]["strings"]['plot-hlms-per-disrepair-category-title'],
+        ...genPlotSettings(
+            langdata["languages"][locale]["strings"]['plot-axis-label-disrepair-state'], 
+            'HLMs'
+        )
     });
     Plotly.newPlot('dwellings-per-disrepair-category', [dwellingsPlotData], {
-        title: "Nombre d'habitations par indice d'état", 
-        ...genPlotSettings("Indice d'État", 'Nombre')
+        title: langdata["languages"][locale]["strings"]['plot-dwellings-per-disrepair-category-title'],
+        ...genPlotSettings(
+            langdata["languages"][locale]["strings"]['plot-axis-label-disrepair-state'], 
+            langdata["languages"][locale]["strings"]['plot-axis-label-dwellings']
+        )
     });
     Plotly.newPlot('dwellings-per-hlms', [hlmSizesPlot], {
-        title: "Nombre d'habitations par HLM", 
-        ...genPlotSettings("Habitations", 'Nombre')
+        title: langdata["languages"][locale]["strings"]['plot-dwellings-per-hlms-title'],
+        ...genPlotSettings(
+            langdata["languages"][locale]["strings"]['plot-axis-label-dwellings'], 
+            'HLMs'
+        )
     });
+}
 
+const currentAreaPlotData = {};
+
+function regeneratePlots() {
+    const {ivpCountsHLMs, ivpCountsDwellings, allDwellingsPerHLM} = currentAreaPlotData;
+    generatePlots(ivpCountsHLMs, ivpCountsDwellings, allDwellingsPerHLM)
+}
+
+async function triggerAreaOverlay(props, type) {
+
+    const {id, name, bbox_sw, bbox_ne} = props;
+
+    // Get the SW and NE points of the bounding box
+    const bbox = [
+        JSON.parse(bbox_sw),
+        JSON.parse(bbox_ne)
+    ]
+    // Retrieve the data for the area
+    const data = dataLoaded[`hlm_clusters_by_${type}`].find(e => e.id === id);
+
+    const overlayElement = document.getElementById('area-info-overlay');
+    document.getElementById('area-title').innerText = name;
+    document.getElementById('area-info-id').innerText = id;
+    document.getElementById('area-info-type').innerText = type;
+
+    
+    const ivpCountsDwellings = {
+        'A': 0,
+        'B': 0,
+        'C': 0,
+        'D': 0,
+        'E': 0,
+    };
+    const ivpCountsHLMs = {
+        'A': 0,
+        'B': 0,
+        'C': 0,
+        'D': 0,
+        'E': 0,
+    };
+    
+    const allDwellingsPerHLM = []
+
+    data.ivps.forEach(entry => {
+        const {dwel: dwellings, s: ivpCategory} = entry;
+        ivpCountsHLMs[ivpCategory] += 1
+        ivpCountsDwellings[ivpCategory] += dwellings;
+        allDwellingsPerHLM.push(dwellings);
+    })
+
+    const numDwellings = allDwellingsPerHLM.reduce((a,b) => a + b);
+
+    overlayElement.querySelector('#area-num-hlms').innerHTML = `${data.ivps.length.toLocaleString()}`;
+    overlayElement.querySelector('#area-num-dwellings').innerHTML = `${numDwellings.toLocaleString()}`;
+
+    // Save the current area plot data to regenerate in case of language change
+    currentAreaPlotData.ivpCountsHLMs = ivpCountsHLMs;
+    currentAreaPlotData.ivpCountsDwellings = ivpCountsDwellings;
+    currentAreaPlotData.allDwellingsPerHLM = allDwellingsPerHLM;
+
+    generatePlots(ivpCountsHLMs, ivpCountsDwellings, allDwellingsPerHLM);
 
     overlayElement.setAttribute('data-visible', true);
     // Hide the menu if it is currently visible
@@ -899,13 +917,14 @@ async function triggerAreaOverlay(props, type) {
 
 
 async function triggerHLMOverlay(evalUnitId, centerLngLat) {
+    const locale = document.getElementById('lang-select').value;
     const overlayElement = document.getElementById('info-overlay');
     // Get the overlay from the server as HTML
     const overlayHTMLContent = await fetch(
         dataset.fetchLotInfoUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json", },
-            body: JSON.stringify({ id: evalUnitId }),
+            body: JSON.stringify({ id: evalUnitId, locale: locale }),
         })
         // Text instead of JSON because we're getting the rendered HTML from the server
         .then(response => response.text());

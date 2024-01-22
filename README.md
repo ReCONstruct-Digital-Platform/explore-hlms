@@ -162,14 +162,10 @@ In the default case where we want all data - when either MRC or SC list is full 
 A big where clause checking for inclusion in the two lists would be slow!
 We join the mrcs and sc tables as needed to optimize query completion time - joining on both tables singificantly impacts query time! 
 
+## I18n/Translation
 
-## Translation i18n/l10n
-TODO
-Ideally, we could have a FR/EN switch on th epage itself that would dynamically change the text and store a cookie for the user.
-Using flask, it seems like its going to be complicated to translate the text in JS code. I found this https://github.com/ZeWaren/flask-i18n-example/tree/master that could be usefule but theres surpinsingly very little info on how to do this.
-For anything coming from the backend and rendered templates, flask has a plugin.
-See this tutorial https://blog.miguelgrinberg.com/post/the-flask-mega-tutorial-part-xiii-i18n-and-l10n
+Dynamic translation between french and english is achieved through different means based on the source of the text.
 
-Django comes with facilities for translating the JS content, so it might be easier to switch to django.
-Anyway, I wanted to integrate this app into BIT, which is a django project.
+For static text within the main HTML template, we identify all translatable elements with a `lang` attribute on the ancestor and a `data-key` attribute on the text element. Javascript code will run and lookup the trabslation in the `langdata` object for the selected locale.
 
+For server generated text, we do a similar thing on the server, looking up the translation of each string in a dictionary.
