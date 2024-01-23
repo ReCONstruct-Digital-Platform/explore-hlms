@@ -618,6 +618,9 @@ def lot_info():
 
     eval_unit_id = data['id']
     locale = data['locale']
+
+    if locale not in ['en', 'fr']:
+        return f"Unknwon locale {locale}"
     
     cur.execute(f"""
         select json_build_object(
@@ -667,8 +670,8 @@ def lot_info():
 
     template = f'unit_info_{locale}.j2'
 
-    if not (Path('templates') / template).exists():
-        return f"Could not find template for locale '{locale}'"
+    # if not (Path('./templates') / template).exists():
+    #     return f"Could not find template for locale '{locale}'"
 
     return render_template(template, unit=unit)
 

@@ -169,3 +169,4 @@ Dynamic translation between french and english is achieved through different mea
 For static text within the main HTML template, we identify all translatable elements with a `lang` attribute on the ancestor and a `data-key` attribute on the text element. Javascript code will run and lookup the trabslation in the `langdata` object for the selected locale.
 
 For server generated text, we do a similar thing on the server, looking up the translation of each string in a dictionary.
+   
