@@ -21,7 +21,6 @@ function setUpText() {
     const containers = document.querySelectorAll('[lang]');
     // Get the selected locale from the dropdown
     const locale = document.getElementById('lang-select').value;
-    console.log(locale);
 
     // For these ones, we have to change the placeholder value
     // This one is loaded in by mapbox so we can't add an ID or data attribute to it
@@ -265,7 +264,6 @@ function setUpFilter() {
 
     document.getElementById('dwellings-range-slider')
         .addEventListener('range-changed', async (e) => {
-            console.log('changed!')
             const data = e.detail;
             filterData.dwellingsMin = data.minRangeValue;
             filterData.dwellingsMax = data.maxRangeValue;
@@ -303,7 +301,6 @@ function setUpCloseAreaInfoButton() {
 function setUpCloseOverlayOnEscapeKey() {
 
     document.addEventListener('keyup', (e) => {
-        console.log(e);
         e.stopPropagation();
         if (e.key !== 'Escape') return;
         // hide any visible overlay
