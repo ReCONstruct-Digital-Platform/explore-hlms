@@ -24,16 +24,54 @@ python -m venv .venv
 source .venv/bin/activate # (linux/mac)
 # Install project dependencies
 pip install -r requirements.txt
-# Copy the example env file
+# Copy the example env file -- you will have to fill it in with values defined below
 cp .env.example .env
 ```
 
-Now fill in the `.env` file with you DB connection values (more on setting up DB below), Mapbox API key.
+Now fill in the `.env` file with you DB connection values (more on setting up DB below) and Mapbox API key.
 
-# Data
-This project gets its data from a PostGIS database. You need to download and install [PostgreSQL](https://www.postgresql.org/download/) and the [PostGIS extension](https://postgis.net/documentation/getting_started/).
+## Get the data
+This project uses a PostGIS database to handle the geo computations. You need to download and install [PostgreSQL](https://www.postgresql.org/download/) and the [PostGIS extension](https://postgis.net/documentation/getting_started/). Then setup the default admin user `postgres` with a password. I will assume it is running on `localhost` at the default port `5432`, change the values below as appropriate based on your setup.
 
-You can download a dump of the database [here](https://f005.backblazeb2.com/file/bit-data-public/exploredb_20240114.sql), which will be much more time efficient. You will need to create a new database called `bitdb4` which you can rename after filling.
+Download a dump of the database [here](https://f005.backblazeb2.com/file/bit-data-public/exploredb_20240114.sql). Before we can load it, we'll have to create a user and a database. 
+
+Run the following in the PostgreSQL command line (`psql`):
+
+```sql
+--- Create a user for the database (called bitdbuser as it's the name used in the dump - you can rename it after)
+CREATE USER bitdbuser WITH PASSWORD <your-password>;
+ALTER ROLE bitdbuser SET client_encoding TO 'utf8';
+ALTER ROLE bitdbuser SET default_transaction_isolation TO 'read committed';
+ALTER ROLE bitdbuser SET timezone TO 'UTC';
+ALTER USER bitdbuser SUPERUSER; 
+
+--- Create an empty database and give admin access to your user
+CREATE DATABASE <your-db-name> OWNER bitdbuser LC_COLLATE 'en_US.UTF-8' LC_CTYPE 'en_US.UTF-8' TEMPLATE 'template0';
+GRANT ALL PRIVILEGES ON DATABASE <your-db-name> TO bitdbuser;
+
+-- Connect to the DB and activate the extensions
+\c <your-db-name> 
+CREATE EXTENSION postgis; -- activate the PostGIS extension for geographic calculations
+```
+
+Now exit `psql` and at the terminal run the following to load the dump into your database:
+```
+psql -d postgresql://bitdbuser:<your-password>@localhost:5432/<your-db-name> -f .\exploredb_20240114.sql -v ON_ERROR_STOP=1
+```
+
+Finally, copy `.env.example` to `.env` and fill in the values with the ones you've chosen for the bitdbuser's password, database name, as well as your mapbox token.
+
+## Run the server locally
+
+You should now be able to run the application locally and access it in a web browser at the address given by the following command.
+
+```
+flask --app server.py run
+```
+
+
+# Recreate the database from scratch
+
 
 Alternatively, you can re-create the database from scratch by following the instructions in the [BIT project's README](https://github.com/ReCONstruct-Digital-Platform/Building-Identification-Tool) and the additional instructions that follow. The dump only contains the necessary data for this project, whereas the BIT DB has additional tables which could be used to extend this project.
 
@@ -138,7 +176,7 @@ update sc set name = 'CS Habitat Métis Nord (HMN)' where id = 1;
 ## Tailwind 
 If developing, download [TailwindCSS](https://tailwindcss.com/docs/installation) and run the processor to automatically regenerate the CSS file.
 ```bash
-npx tailwindcss -i ./static/input.css -o ./static/styles.css --watch
+`npx tailwindcss -i ./static/input.css -o ./static/styles.css --watch`
 ```
 
 ## Clustering
