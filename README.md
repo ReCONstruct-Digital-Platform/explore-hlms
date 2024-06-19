@@ -31,7 +31,7 @@ cp .env.example .env
 Now fill in the `.env` file with you DB connection values (more on setting up DB below) and Mapbox API key.
 
 ## Get the data
-This project uses a PostGIS database to handle the geo computations. You need to download and install [PostgreSQL](https://www.postgresql.org/download/) and the [PostGIS extension](https://postgis.net/documentation/getting_started/). Then setup the default admin user `postgres` with a password. I will assume it is running on `localhost` at the default port `5432`, change the values below as appropriate based on your setup.
+This project uses a PostGIS database to handle the geo computations. You need to download and install [PostgreSQL](https://www.postgresql.org/download/) and the [PostGIS extension](https://postgis.net/documentation/getting_started/). Then setup the default admin user `postgres` with a password. I will assume it is running on `localhost` at the default port `5432`, change the values below as appropriate based on your setup. This was tested with PostgreSQL version 15.2.
 
 Download a dump of the database [here](https://f005.backblazeb2.com/file/bit-data-public/exploredb_20240114.sql). Before we can load it, we'll have to create a user and a database. 
 
